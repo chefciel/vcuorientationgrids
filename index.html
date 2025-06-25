@@ -203,18 +203,15 @@
     if (e.key === "Enter") filterMasterDropdowns();
   });
 
- function filterMasterDropdowns() {
-  const term = document.getElementById("masterSearch").value.trim().toLowerCase();
-  const sections = document.querySelectorAll(".user-section");
-
-  sections.forEach(section => {
-    const labelText = section.querySelector(".dropdown-label")?.textContent?.toLowerCase() || "";
-    const contentText = section.querySelector(".dropdown-content")?.textContent?.toLowerCase() || "";
-    const match = labelText.includes(term) || contentText.includes(term);
-
-    section.style.display = match ? "" : "none";
-  });
-}
+  function filterMasterDropdowns() {
+    const term = document.getElementById("masterSearch").value.trim().toLowerCase();
+    const sections = document.querySelectorAll(".user-section");
+    sections.forEach(section => {
+      const label = section.querySelector(".dropdown-label");
+      const name = label?.textContent?.trim().toLowerCase() || "";
+      section.style.display = name.includes(term) ? "" : "none";
+    });
+  }
 
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
