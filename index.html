@@ -84,6 +84,11 @@
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
     }
+    a {
+      color: #00558C;
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -193,12 +198,35 @@
     if (e.key === "Enter") filterMasterDropdowns();
   });
 
-  // Extract hyperlink URL from .f field (formatted HTML) if exists
-  function extractHyperlink(cell) {
-    if (!cell || !cell.f) return null;
-    const html = cell.f;
-    const match = html.match(/<a href="([^"]+)"/);
-    return match ? match[1] : null;
+  function filterMasterDropdowns() {
+    const term = document.getElementById("masterSearch").value.trim().toLowerCase();
+    const userSections = document.querySelectorAll(".user-section");
+    userSections.forEach(section => {
+      const textContent = section.textContent.toLowerCase();
+      section.style.display = textContent.includes(term) ? "" : "none";
+    });
+
+    // Also hide empty session groups if all children hidden
+    const sessionGroups = document.querySelectorAll(".session-group");
+    sessionGroups.forEach(session => {
+      const visibleChildren = [...session.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
+      session.style.display = visibleChildren ? "" : "none";
+    });
+  }
+
+  // Parse any links in text with embedded Google Sheets-style hyperlinks and make them clickable
+  function parseLinks(text) {
+    // This function assumes text might contain markdown-like [label](url) or just plain text or urls
+    // But since Google Sheets exports as rich text differently, we'll look for anchor tags in HTML strings (if any)
+    // However, since we get plain text from Google Sheets, we must rely on detecting URLs in the text
+
+    // For this app, the best approach is to detect URLs inside the text and wrap them in anchor tags
+    // and if the text looks like "VCU-Orientation" but is a hyperlink in Google Sheets,
+    // it is not passed as a separate link - so we handle URLs only.
+
+    // Regex to detect URLs anywhere in the string
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
   }
 
   async function loadSchedule() {
@@ -226,32 +254,13 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        const formatted = rows.map(r => {
-          const id = r.c[0]?.v?.toLowerCase()?.trim() || "";
-          const time = r.c[1]?.v || "Unknown Time";
-
-          // Handle activity with hyperlink detection
-          let activityText = r.c[2]?.v || "";
-          let activityLink = extractHyperlink(r.c[2]);
-          if (activityLink) {
-            activityText = `<a href="${activityLink}" target="_blank" rel="noopener noreferrer">${activityText}</a>`;
-          }
-
-          // Handle location with hyperlink detection
-          let locationText = r.c[3]?.v || "";
-          let locationLink = extractHyperlink(r.c[3]);
-          if (locationLink) {
-            locationText = `<a href="${locationLink}" target="_blank" rel="noopener noreferrer">${locationText}</a>`;
-          }
-
-          return {
-            id,
-            time,
-            activity: activityText,
-            location: locationText,
-            tab: tab
-          };
-        }).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+        const formatted = rows.map(r => ({
+          id: r.c[0]?.v?.toLowerCase()?.trim() || "",
+          time: r.c[1]?.v || "Unknown Time",
+          activity: r.c[2]?.f || r.c[2]?.v || "",  // Use formatted (f) field for possible rich text
+          location: r.c[3]?.f || r.c[3]?.v || "",  // Same here for location
+          tab: tab
+        })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
 
         allRows = allRows.concat(formatted);
       } catch (err) {
@@ -271,12 +280,12 @@
     }
 
     if (!isAdmin) {
-      // Regular user schedule view with clickable links
+      // Regular user schedule view
       const cards = userFiltered.map(item => `
         <div class="card">
           <strong>${item.time}</strong>
-          ${item.activity}<br />
-          <em>${item.location}</em>
+          ${parseLinks(item.activity)}<br />
+          <em>${parseLinks(item.location)}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
       return;
@@ -375,8 +384,8 @@
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
-                ${item.activity}<br />
-                <em>${item.location}</em><br />
+                ${parseLinks(item.activity)}<br />
+                <em>${parseLinks(item.location)}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
           }
