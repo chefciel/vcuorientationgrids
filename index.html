@@ -64,25 +64,25 @@
       display: inline-block;
       transition: transform 0.2s;
     }
+    #masterPasswordContainer, #masterSearchContainer, #exitAdminBtn {
+      display: none;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .user-section, .group-section {
+      margin-bottom: 10px;
+    }
     .section-header {
-      font-size: 1.4em;
+      text-align: center;
+      font-size: 1.5em;
       font-weight: bold;
       margin-top: 40px;
       color: #00558C;
-      text-align: center;
     }
     .schedule-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
-    }
-    .user-section {
-      margin-bottom: 10px;
-    }
-    #masterPasswordContainer, #masterSearchContainer, #exitAdminBtn {
-      display: none;
-      text-align: center;
-      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -106,7 +106,7 @@
   </div>
 
   <div id="masterSearchContainer">
-    <input type="text" id="masterSearch" placeholder="Search by user name or keyword...">
+    <input type="text" id="masterSearch" placeholder="Search by any keyword..." />
     <button id="masterSearchBtn">Search</button>
   </div>
 
@@ -124,10 +124,28 @@
   ];
 
   const sessionDateMap = {
+    "2025-06-18": "6/23-24",
+    "2025-06-20": "6/23-24",
+    "2025-06-21": "6/23-24",
+    "2025-06-22": "6/23-24",
+    "2025-06-23": "6/23-24",
+    "2025-06-24": "6/23-24",
     "2025-06-25": "6/26-27",
     "2025-06-26": "6/26-27",
     "2025-06-27": "6/26-27",
-    // add more date mappings here
+    "2025-06-30": "6/30",
+    "2025-07-07": "7/7-8",
+    "2025-07-08": "7/7-8",
+    "2025-07-10": "7/10-11",
+    "2025-07-11": "7/10-11",
+    "2025-07-14": "7/14-15",
+    "2025-07-15": "7/14-15",
+    "2025-07-17": "7/17-18",
+    "2025-07-18": "7/17-18",
+    "2025-07-21": "7/21-22",
+    "2025-07-22": "7/21-22",
+    "2025-07-24": "7/24",
+    "2025-08-24": "8/15"
   };
 
   const MASTER_PASSWORD = "master123";
@@ -139,7 +157,11 @@
 
   function getTodayTabs() {
     const session = sessionDateMap[getTodayDateString()];
-    return session ? allTabs.filter(tab => tab.includes(session)) : [];
+    if (!session) {
+      alert("No session is mapped for today.");
+      return [];
+    }
+    return allTabs.filter(tab => tab === session);
   }
 
   function togglePassword() {
@@ -161,9 +183,11 @@
   document.getElementById("userId").addEventListener("keydown", e => {
     if (e.key === "Enter") loadSchedule();
   });
+
   document.getElementById("masterPassword").addEventListener("keydown", e => {
     if (e.key === "Enter") loadSchedule();
   });
+
   document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
   document.getElementById("masterSearch").addEventListener("keydown", e => {
     if (e.key === "Enter") filterMasterDropdowns();
@@ -171,10 +195,17 @@
 
   function filterMasterDropdowns() {
     const term = document.getElementById("masterSearch").value.trim().toLowerCase();
-    const sections = document.querySelectorAll(".user-section, .session-section");
-    sections.forEach(section => {
-      const content = section.innerText.toLowerCase();
-      section.style.display = content.includes(term) ? "" : "none";
+    const userSections = document.querySelectorAll(".user-section");
+    userSections.forEach(section => {
+      const textContent = section.textContent.toLowerCase();
+      section.style.display = textContent.includes(term) ? "" : "none";
+    });
+
+    // Also hide empty session groups if all children hidden
+    const sessionGroups = document.querySelectorAll(".session-group");
+    sessionGroups.forEach(session => {
+      const visibleChildren = [...session.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
+      session.style.display = visibleChildren ? "" : "none";
     });
   }
 
@@ -186,63 +217,158 @@
     container.innerHTML = "Loading...";
     masterDiv.innerHTML = "";
 
-    const SHEET_TABS = getTodayTabs();
+    const SHEET_TABS = isAdmin ? allTabs : getTodayTabs();
+
     if (!SHEET_TABS.length) {
       container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
       return;
+    }
+
+    let allRows = [];
+
+    for (const tab of SHEET_TABS) {
+      try {
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        const rows = json.table.rows;
+
+        const formatted = rows.map(r => ({
+          id: r.c[0]?.v?.toLowerCase()?.trim() || "",
+          time: r.c[1]?.v || "Unknown Time",
+          activity: r.c[2]?.v || "",
+          location: r.c[3]?.v || "",
+          tab: tab
+        })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+
+        allRows = allRows.concat(formatted);
+      } catch (err) {
+        console.error(`Error loading sheet "${tab}":`, err);
+      }
     }
 
     isAdmin = password === MASTER_PASSWORD;
     document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
     document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
+    const userFiltered = allRows.filter(r => r.id === userId);
+
+    if (!userFiltered.length && !isAdmin) {
+      container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
+      return;
+    }
+
     if (!isAdmin) {
-      // User mode: only today's session
-      const tab = SHEET_TABS[0];
-      const data = await fetchTabData(tab);
-      const userRows = data.filter(r => r.id === userId);
-      if (!userRows.length) {
-        container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
-        return;
+      // Regular user schedule view
+      const cards = userFiltered.map(item => `
+        <div class="card">
+          <strong>${item.time}</strong>
+          ${item.activity}<br />
+          <em>${item.location}</em>
+        </div>`).join("");
+      container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
+      return;
+    }
+
+    // Admin view with sessions dropdown
+    container.innerHTML = "";
+    masterDiv.innerHTML = "";
+
+    // Group by tab/session first
+    const sessionGroups = {};
+    for (const tab of allTabs) {
+      sessionGroups[tab] = [];
+    }
+    allRows.forEach(item => {
+      if (sessionGroups[item.tab]) sessionGroups[item.tab].push(item);
+      else sessionGroups["Transfer Session"].push(item);
+    });
+
+    for (const [session, entries] of Object.entries(sessionGroups)) {
+      if (entries.length === 0) continue;
+
+      // Create session dropdown
+      const sessionSection = document.createElement("div");
+      sessionSection.className = "session-group";
+
+      const sessionLabel = document.createElement("div");
+      sessionLabel.className = "dropdown-label";
+      sessionLabel.innerHTML = `<span>${session} (${[...new Set(entries.map(e => e.id))].length})</span> <span class="arrow">▸</span>`;
+      sessionSection.appendChild(sessionLabel);
+
+      const sessionContent = document.createElement("div");
+      sessionContent.className = "dropdown-content";
+      sessionSection.appendChild(sessionContent);
+
+      // Group entries by suffix (1-4) inside session
+      const groups = {
+        "Day 1": [],
+        "Day 2": [],
+        "Families Day 1": [],
+        "Families Day 2": [],
+        "Unmatched IDs": []
+      };
+
+      for (const item of entries) {
+        const id = item.id.toLowerCase().trim();
+        if (!id) continue;
+        const match = id.match(/^(.+?)([1-4])$/);
+        if (!match) {
+          groups["Unmatched IDs"].push(item);
+          continue;
+        }
+        const suffix = match[2];
+        if (suffix === "1") groups["Day 1"].push(item);
+        else if (suffix === "2") groups["Day 2"].push(item);
+        else if (suffix === "3") groups["Families Day 1"].push(item);
+        else if (suffix === "4") groups["Families Day 2"].push(item);
       }
-      container.innerHTML = `<div class="schedule-grid">${userRows.map(toCard).join("")}</div>`;
-    } else {
-      container.innerHTML = "";
-      for (const tab of allTabs) {
-        const data = await fetchTabData(tab);
-        if (!data.length) continue;
 
-        const sessionSection = document.createElement("div");
-        sessionSection.className = "session-section";
+      // Create dropdowns for each group inside session
+      for (const [group, groupEntries] of Object.entries(groups)) {
+        if (groupEntries.length === 0) continue;
 
-        const sessionHeader = document.createElement("div");
-        sessionHeader.className = "dropdown-label";
-        sessionHeader.innerHTML = `<span>${tab}</span> <span class="arrow">▸</span>`;
-        const sessionContent = document.createElement("div");
-        sessionContent.className = "dropdown-content";
-        sessionContent.style.display = "none";
+        const groupSection = document.createElement("div");
+        groupSection.className = "group-section";
 
-        sessionHeader.addEventListener("click", () => {
-          const expanded = sessionContent.style.display === "block";
-          sessionContent.style.display = expanded ? "none" : "block";
-          sessionHeader.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
-        });
+        const groupLabel = document.createElement("div");
+        groupLabel.className = "dropdown-label";
+        const uniqueCount = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))].length;
+        groupLabel.innerHTML = `<span>${group} (${uniqueCount})</span> <span class="arrow">▸</span>`;
+        groupSection.appendChild(groupLabel);
 
-        // Group by user ID
-        const names = [...new Set(data.map(d => d.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))];
-        for (const name of names) {
-          const entries = data.filter(d => d.id.replace(/[^a-zA-Z]/g, "").toUpperCase() === name);
-          const section = document.createElement("div");
-          section.className = "user-section";
+        const groupContent = document.createElement("div");
+        groupContent.className = "dropdown-content schedule-grid";
+        groupSection.appendChild(groupContent);
+
+        // Group entries by unique user name (letters only)
+        const uniqueNames = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))];
+
+        for (const name of uniqueNames) {
+          const filtered = groupEntries.filter(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase() === name);
+
+          const userSection = document.createElement("div");
+          userSection.className = "user-section";
 
           const label = document.createElement("div");
           label.className = "dropdown-label";
           label.innerHTML = `<span>${name}</span> <span class="arrow">▸</span>`;
+          userSection.appendChild(label);
+
           const content = document.createElement("div");
           content.className = "dropdown-content schedule-grid";
-
-          content.innerHTML = entries.map(toCard).join("");
           content.style.display = "none";
+
+          for (const item of filtered) {
+            content.innerHTML += `
+              <div class="card">
+                <strong>${item.time}</strong>
+                ${item.activity}<br />
+                <em>${item.location}</em><br />
+                <small style="color:gray;">User ID: ${item.id}</small>
+              </div>`;
+          }
 
           label.addEventListener("click", () => {
             const expanded = content.style.display === "block";
@@ -250,45 +376,27 @@
             label.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
           });
 
-          section.appendChild(label);
-          section.appendChild(content);
-          sessionContent.appendChild(section);
+          userSection.appendChild(content);
+          groupContent.appendChild(userSection);
         }
 
-        sessionSection.appendChild(sessionHeader);
-        sessionSection.appendChild(sessionContent);
-        masterDiv.appendChild(sessionSection);
+        groupLabel.addEventListener("click", () => {
+          const expanded = groupContent.style.display === "block";
+          groupContent.style.display = expanded ? "none" : "block";
+          groupLabel.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
+        });
+
+        sessionContent.appendChild(groupSection);
       }
-    }
-  }
 
-  async function fetchTabData(tab) {
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
-      const res = await fetch(url);
-      const text = await res.text();
-      const json = JSON.parse(text.substring(47).slice(0, -2));
-      const rows = json.table.rows;
-      return rows.map(r => ({
-        id: r.c[0]?.v?.toLowerCase()?.trim() || "",
-        time: r.c[1]?.v || "Unknown Time",
-        activity: r.c[2]?.v || "",
-        location: r.c[3]?.v || ""
-      })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
-    } catch (err) {
-      console.error(`Error loading sheet "${tab}":`, err);
-      return [];
-    }
-  }
+      sessionLabel.addEventListener("click", () => {
+        const expanded = sessionContent.style.display === "block";
+        sessionContent.style.display = expanded ? "none" : "block";
+        sessionLabel.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
+      });
 
-  function toCard(item) {
-    return `
-      <div class="card">
-        <strong>${item.time}</strong>
-        ${item.activity}<br />
-        <em>${item.location}</em><br />
-        <small style="color:gray;">User ID: ${item.id}</small>
-      </div>`;
+      masterDiv.appendChild(sessionSection);
+    }
   }
 </script>
 </body>
