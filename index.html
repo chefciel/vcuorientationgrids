@@ -32,7 +32,6 @@
       background: #fff;
       flex: 1 1 300px;
       box-sizing: border-box;
-      word-wrap: break-word;
     }
     .card strong {
       display: block;
@@ -84,11 +83,6 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
-    }
-    a.popup-link {
-      color: #00558C;
-      text-decoration: underline;
-      cursor: pointer;
     }
   </style>
 </head>
@@ -199,56 +193,12 @@
     if (e.key === "Enter") filterMasterDropdowns();
   });
 
-  function filterMasterDropdowns() {
-    const term = document.getElementById("masterSearch").value.trim().toLowerCase();
-    const userSections = document.querySelectorAll(".user-section");
-    userSections.forEach(section => {
-      const textContent = section.textContent.toLowerCase();
-      section.style.display = textContent.includes(term) ? "" : "none";
-    });
-
-    // Also hide empty session groups if all children hidden
-    const sessionGroups = document.querySelectorAll(".session-group");
-    sessionGroups.forEach(session => {
-      const visibleChildren = [...session.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
-      session.style.display = visibleChildren ? "" : "none";
-    });
-  }
-
-  // Helper to detect URL in text (simple regex)
-  function extractUrl(text) {
-    // Regex to match http/https URLs
-    const urlRegex = /(https?:\/\/[^\s]+)/i;
-    const match = text.match(urlRegex);
-    return match ? match[0] : null;
-  }
-
-  // Create clickable anchor link opening in new tab
-  function createNewTabLink(url, displayText) {
-    const link = document.createElement("a");
-    link.textContent = displayText || url;
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.style.color = "#00558C";
-    link.style.textDecoration = "underline";
-    return link;
-  }
-
-  // Build HTML content for activity/location with clickable links opening in new tab
-  function buildFieldContent(text) {
-    const url = extractUrl(text);
-    if (url) {
-      const parts = text.split(url);
-      const container = document.createElement("span");
-      container.appendChild(document.createTextNode(parts[0]));
-      const link = createNewTabLink(url, url);
-      container.appendChild(link);
-      container.appendChild(document.createTextNode(parts[1] || ""));
-      return container.outerHTML;
-    } else {
-      return text;
-    }
+  // Extract hyperlink URL from .f field (formatted HTML) if exists
+  function extractHyperlink(cell) {
+    if (!cell || !cell.f) return null;
+    const html = cell.f;
+    const match = html.match(/<a href="([^"]+)"/);
+    return match ? match[1] : null;
   }
 
   async function loadSchedule() {
@@ -276,13 +226,32 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        const formatted = rows.map(r => ({
-          id: r.c[0]?.v?.toLowerCase()?.trim() || "",
-          time: r.c[1]?.v || "Unknown Time",
-          activity: r.c[2]?.v || "",
-          location: r.c[3]?.v || "",
-          tab: tab
-        })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+        const formatted = rows.map(r => {
+          const id = r.c[0]?.v?.toLowerCase()?.trim() || "";
+          const time = r.c[1]?.v || "Unknown Time";
+
+          // Handle activity with hyperlink detection
+          let activityText = r.c[2]?.v || "";
+          let activityLink = extractHyperlink(r.c[2]);
+          if (activityLink) {
+            activityText = `<a href="${activityLink}" target="_blank" rel="noopener noreferrer">${activityText}</a>`;
+          }
+
+          // Handle location with hyperlink detection
+          let locationText = r.c[3]?.v || "";
+          let locationLink = extractHyperlink(r.c[3]);
+          if (locationLink) {
+            locationText = `<a href="${locationLink}" target="_blank" rel="noopener noreferrer">${locationText}</a>`;
+          }
+
+          return {
+            id,
+            time,
+            activity: activityText,
+            location: locationText,
+            tab: tab
+          };
+        }).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
 
         allRows = allRows.concat(formatted);
       } catch (err) {
@@ -302,12 +271,12 @@
     }
 
     if (!isAdmin) {
-      // Regular user schedule view
+      // Regular user schedule view with clickable links
       const cards = userFiltered.map(item => `
         <div class="card">
           <strong>${item.time}</strong>
-          ${buildFieldContent(item.activity)}<br />
-          <em>${buildFieldContent(item.location)}</em>
+          ${item.activity}<br />
+          <em>${item.location}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
       return;
@@ -406,8 +375,8 @@
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
-                ${buildFieldContent(item.activity)}<br />
-                <em>${buildFieldContent(item.location)}</em><br />
+                ${item.activity}<br />
+                <em>${item.location}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
           }
