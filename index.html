@@ -84,11 +84,6 @@
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
     }
-    a {
-      color: #00558C;
-      text-decoration: underline;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
@@ -214,26 +209,6 @@
     });
   }
 
-  // Function to convert text with embedded URLs (like Google Sheets hyperlinks) into clickable anchor tags
-  function parseHyperlinks(text) {
-    // This regex matches URLs anywhere in the text
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
-  }
-
-  // New function to parse hyperlink formulas in Google Sheets (like "tap here" linked to URL)
-  // We'll detect if text contains a URL embedded and convert the display text into <a> with href
-  // For simplicity, this will handle if the cell text is the display text ONLY
-  // But the user must put the URL inside parentheses after the display text: e.g. "tap here (https://example.com)"
-  // This is a convention for this parser since we can't get the actual formula or rich text from Sheets API
-  function parseDisplayLinks(text) {
-    // Regex to match "display text (url)"
-    const displayLinkRegex = /([^\(\)]+)\s*\((https?:\/\/[^\s\)]+)\)/g;
-    return text.replace(displayLinkRegex, (match, displayText, url) => {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${displayText.trim()}</a>`;
-    });
-  }
-
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -259,44 +234,14 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        // Process priority rows separately
-        let priorityRows = [];
-        let normalRows = [];
+        const formatted = rows.map(r => ({
+          id: r.c[0]?.v?.toLowerCase()?.trim() || "",
+          time: r.c[1]?.v || "Unknown Time",
+          activity: r.c[2]?.f || r.c[2]?.v || "",
+          location: r.c[3]?.f || r.c[3]?.v || "",
+          tab: tab
+        })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
 
-        const prefixPatterns = [/^\[TOP\]/i, /^TOP:/i];
-
-        rows.forEach(r => {
-          const idRaw = r.c[0]?.v || "";
-          const id = idRaw.toLowerCase().trim();
-          if (!id || id === "hidden" || id === "_blank_") return;
-
-          const time = r.c[1]?.v || "Unknown Time";
-          let activity = r.c[2]?.v || "";
-          let location = r.c[3]?.v || "";
-          const tabName = tab;
-
-          // Check if Activity or Location has a prefix indicating priority
-          const isPriority = prefixPatterns.some(pattern => 
-            pattern.test(activity) || pattern.test(location)
-          );
-
-          // Parse display links in activity and location
-          activity = parseDisplayLinks(activity);
-          location = parseDisplayLinks(location);
-
-          const rowObj = {
-            id: id,
-            time: time,
-            activity: activity,
-            location: location,
-            tab: tabName
-          };
-
-          if (isPriority) priorityRows.push(rowObj);
-          else normalRows.push(rowObj);
-        });
-
-        const formatted = priorityRows.concat(normalRows);
         allRows = allRows.concat(formatted);
       } catch (err) {
         console.error(`Error loading sheet "${tab}":`, err);
@@ -307,21 +252,34 @@
     document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
     document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
-    const userFiltered = allRows.filter(r => r.id === userId);
+    // Filter rows for user, including 'all#' rows applying to all user IDs ending with that number
+    const userFiltered = allRows.filter(r =>
+      r.id === userId ||
+      (r.id === `all${userId.slice(-1)}` && userId.match(/[a-zA-Z]+\d$/))
+    );
 
-    if (!userFiltered.length && !isAdmin) {
-      container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
-      return;
-    }
+    // Separate TOP rows and others
+    const topRows = userFiltered.filter(r => r.activity.toUpperCase().includes("TOP"));
+    const regularRows = userFiltered.filter(r => !r.activity.toUpperCase().includes("TOP"));
 
-    if (!isAdmin) {
-      // Regular user schedule view
-      const cards = userFiltered.map(item => `
+    const createCardHTML = (item) => {
+      const activityHTML = extractLink(item.activity);
+      const locationHTML = extractLink(item.location);
+      return `
         <div class="card">
           <strong>${item.time}</strong>
-          <div>${item.activity}</div>
-          <em>${item.location}</em>
-        </div>`).join("");
+          ${activityHTML}<br />
+          <em>${locationHTML}</em>
+        </div>`;
+    };
+
+    if (!isAdmin) {
+      if (userFiltered.length === 0) {
+        container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
+        return;
+      }
+      // Regular user schedule view - TOP rows at the top
+      const cards = [...topRows, ...regularRows].map(createCardHTML).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
       return;
     }
@@ -416,11 +374,14 @@
           content.style.display = "none";
 
           for (const item of filtered) {
+            const activityHTML = extractLink(item.activity);
+            const locationHTML = extractLink(item.location);
+
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
-                <div>${item.activity}</div>
-                <em>${item.location}</em><br />
+                ${activityHTML}<br />
+                <em>${locationHTML}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
           }
@@ -452,6 +413,37 @@
 
       masterDiv.appendChild(sessionSection);
     }
+  }
+
+  // Extract hyperlink from Google Sheets formula or regular text
+  function extractLink(cellValue) {
+    if (!cellValue) return "";
+
+    // Create temporary element to parse HTML if any
+    const temp = document.createElement("div");
+    temp.innerHTML = cellValue;
+
+    // Find hyperlink if exists
+    const anchor = temp.querySelector("a");
+    if (anchor) {
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.style.color = "#00558C";
+      anchor.style.textDecoration = "underline";
+      return anchor.outerHTML;
+    }
+
+    // If no anchor tag, check if the string contains a hyperlink formula pattern
+    // This usually won't appear here as Google Sheets provides it in .f property as HTML string, but fallback:
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+    if (urlPattern.test(cellValue)) {
+      const replaced = cellValue.replace(urlPattern, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#00558C; text-decoration:underline;">${url}</a>`;
+      });
+      return replaced;
+    }
+
+    return temp.textContent || cellValue;
   }
 </script>
 </body>
