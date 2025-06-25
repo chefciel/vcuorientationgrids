@@ -84,6 +84,11 @@
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
     }
+    a {
+      color: #00558C;
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -209,6 +214,26 @@
     });
   }
 
+  // Function to convert text with embedded URLs (like Google Sheets hyperlinks) into clickable anchor tags
+  function parseHyperlinks(text) {
+    // This regex matches URLs anywhere in the text
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+  }
+
+  // New function to parse hyperlink formulas in Google Sheets (like "tap here" linked to URL)
+  // We'll detect if text contains a URL embedded and convert the display text into <a> with href
+  // For simplicity, this will handle if the cell text is the display text ONLY
+  // But the user must put the URL inside parentheses after the display text: e.g. "tap here (https://example.com)"
+  // This is a convention for this parser since we can't get the actual formula or rich text from Sheets API
+  function parseDisplayLinks(text) {
+    // Regex to match "display text (url)"
+    const displayLinkRegex = /([^\(\)]+)\s*\((https?:\/\/[^\s\)]+)\)/g;
+    return text.replace(displayLinkRegex, (match, displayText, url) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${displayText.trim()}</a>`;
+    });
+  }
+
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -234,28 +259,44 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        // Modified parsing to handle multiple comma-separated user IDs in first column
-        const formatted = [];
-        rows.forEach(r => {
-          const userIdsRaw = r.c[0]?.v || "";
-          const userIds = userIdsRaw.split(",").map(id => id.trim().toLowerCase()).filter(id => id);
-          const time = r.c[1]?.v || "Unknown Time";
-          const activity = r.c[2]?.v || "";
-          const location = r.c[3]?.v || "";
+        // Process priority rows separately
+        let priorityRows = [];
+        let normalRows = [];
 
-          userIds.forEach(id => {
-            if (id && id !== "hidden" && id !== "_blank_") {
-              formatted.push({
-                id: id,
-                time: time,
-                activity: activity,
-                location: location,
-                tab: tab
-              });
-            }
-          });
+        const prefixPatterns = [/^\[TOP\]/i, /^TOP:/i];
+
+        rows.forEach(r => {
+          const idRaw = r.c[0]?.v || "";
+          const id = idRaw.toLowerCase().trim();
+          if (!id || id === "hidden" || id === "_blank_") return;
+
+          const time = r.c[1]?.v || "Unknown Time";
+          let activity = r.c[2]?.v || "";
+          let location = r.c[3]?.v || "";
+          const tabName = tab;
+
+          // Check if Activity or Location has a prefix indicating priority
+          const isPriority = prefixPatterns.some(pattern => 
+            pattern.test(activity) || pattern.test(location)
+          );
+
+          // Parse display links in activity and location
+          activity = parseDisplayLinks(activity);
+          location = parseDisplayLinks(location);
+
+          const rowObj = {
+            id: id,
+            time: time,
+            activity: activity,
+            location: location,
+            tab: tabName
+          };
+
+          if (isPriority) priorityRows.push(rowObj);
+          else normalRows.push(rowObj);
         });
 
+        const formatted = priorityRows.concat(normalRows);
         allRows = allRows.concat(formatted);
       } catch (err) {
         console.error(`Error loading sheet "${tab}":`, err);
@@ -278,7 +319,7 @@
       const cards = userFiltered.map(item => `
         <div class="card">
           <strong>${item.time}</strong>
-          ${item.activity}<br />
+          <div>${item.activity}</div>
           <em>${item.location}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
@@ -378,7 +419,7 @@
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
-                ${item.activity}<br />
+                <div>${item.activity}</div>
                 <em>${item.location}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
