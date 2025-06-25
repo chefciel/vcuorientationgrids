@@ -32,6 +32,7 @@
       background: #fff;
       flex: 1 1 300px;
       box-sizing: border-box;
+      word-wrap: break-word;
     }
     .card strong {
       display: block;
@@ -84,6 +85,50 @@
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
     }
+    /* Popup Modal Styles */
+    #popupOverlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #popupContent {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 90%;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    #popupCloseBtn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      background: #F0B323;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #231F20;
+      font-size: 1em;
+    }
+    #popupIframe {
+      width: 100%;
+      height: 70vh;
+      border: none;
+      border-radius: 5px;
+    }
+    a.popup-link {
+      color: #00558C;
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -116,6 +161,14 @@
 
   <div id="scheduleContainer"></div>
   <div id="masterSchedule"></div>
+
+  <!-- Popup Modal -->
+  <div id="popupOverlay" onclick="closePopup(event)">
+    <div id="popupContent" onclick="event.stopPropagation()">
+      <button id="popupCloseBtn" onclick="closePopup()">Close ×</button>
+      <iframe id="popupIframe" src=""></iframe>
+    </div>
+  </div>
 
 <script>
   const SHEET_ID = "1Uafwo7ikADBeXOnof6Fq1LSKXVWfP9kJDMWsg2VirWE";
@@ -209,6 +262,42 @@
     });
   }
 
+  // Helper to detect URL in text (simple regex)
+  function extractUrl(text) {
+    // Regex to match http/https URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/i;
+    const match = text.match(urlRegex);
+    return match ? match[0] : null;
+  }
+
+  // Create clickable link element that opens popup
+  function createPopupLink(url, displayText) {
+    const link = document.createElement("a");
+    link.textContent = displayText || url;
+    link.href = "#";
+    link.className = "popup-link";
+    link.onclick = function(e) {
+      e.preventDefault();
+      openPopup(url);
+    };
+    return link;
+  }
+
+  function openPopup(url) {
+    const overlay = document.getElementById("popupOverlay");
+    const iframe = document.getElementById("popupIframe");
+    iframe.src = url;
+    overlay.style.display = "flex";
+  }
+
+  function closePopup(event) {
+    if(event) event.preventDefault();
+    const overlay = document.getElementById("popupOverlay");
+    const iframe = document.getElementById("popupIframe");
+    iframe.src = "";
+    overlay.style.display = "none";
+  }
+
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -259,13 +348,33 @@
       return;
     }
 
+    // Function to build HTML content for activity/location with clickable popup links if URL detected
+    function buildFieldContent(text) {
+      const url = extractUrl(text);
+      if (url) {
+        // Show link, but display full text with link clickable on URL portion
+        // We'll split text by URL and insert clickable link element
+        const parts = text.split(url);
+        // Create container element
+        const container = document.createElement("span");
+        container.appendChild(document.createTextNode(parts[0]));
+        const link = createPopupLink(url, url);
+        container.appendChild(link);
+        container.appendChild(document.createTextNode(parts[1] || ""));
+        return container.outerHTML;
+      } else {
+        // Just plain text escaped
+        return text;
+      }
+    }
+
     if (!isAdmin) {
       // Regular user schedule view
       const cards = userFiltered.map(item => `
         <div class="card">
           <strong>${item.time}</strong>
-          ${item.activity}<br />
-          <em>${item.location}</em>
+          ${buildFieldContent(item.activity)}<br />
+          <em>${buildFieldContent(item.location)}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
       return;
@@ -364,8 +473,8 @@
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
-                ${item.activity}<br />
-                <em>${item.location}</em><br />
+                ${buildFieldContent(item.activity)}<br />
+                <em>${buildFieldContent(item.location)}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
           }
