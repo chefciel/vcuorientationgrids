@@ -209,6 +209,15 @@
     });
   }
 
+  // Helper to add target="_blank" and rel="noopener noreferrer" to all links inside container
+  function fixLinks(containerElement) {
+    const links = containerElement.querySelectorAll('a');
+    links.forEach(a => {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+    });
+  }
+
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -234,12 +243,11 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        // Use .f (formatted html) if present for hyperlinks; fallback to .v (value)
         const formatted = rows.map(r => ({
           id: r.c[0]?.v?.toLowerCase()?.trim() || "",
           time: r.c[1]?.v || "Unknown Time",
-          activity: r.c[2]?.f || r.c[2]?.v || "",
-          location: r.c[3]?.f || r.c[3]?.v || "",
+          activity: r.c[2]?.f || r.c[2]?.v || "",     // use formatted html if exists
+          location: r.c[3]?.f || r.c[3]?.v || "",     // use formatted html if exists
           tab: tab
         })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
 
@@ -261,7 +269,7 @@
     }
 
     if (!isAdmin) {
-      // Regular user schedule view - inject HTML so hyperlinks work
+      // Regular user schedule view
       const cards = userFiltered.map(item => `
         <div class="card">
           <strong>${item.time}</strong>
@@ -269,6 +277,7 @@
           <em>${item.location}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
+      fixLinks(container);
       return;
     }
 
@@ -362,7 +371,6 @@
           content.style.display = "none";
 
           for (const item of filtered) {
-            // Inject HTML directly for links
             content.innerHTML += `
               <div class="card">
                 <strong>${item.time}</strong>
@@ -370,6 +378,7 @@
                 <em>${item.location}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
+            fixLinks(content);
           }
 
           label.addEventListener("click", () => {
