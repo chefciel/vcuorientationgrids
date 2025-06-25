@@ -318,6 +318,7 @@
 
         const groupContent = document.createElement("div");
         groupContent.className = "dropdown-content schedule-grid";
+        groupContent.style.display = "none";
         groupSection.appendChild(groupContent);
 
         const uniqueNames = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))];
