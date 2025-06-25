@@ -42,7 +42,7 @@
     /* New styles for activity and location text */
     .card .activity-text {
       font-size: 1.0em; /* Customize font size for activity here */
-      font-style: bold;
+      font-weight: bold;
       margin-bottom: 6px;
     }
     .card .location-text {
@@ -242,7 +242,7 @@
       return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     }
 
-    // Otherwise return as plain text, but if it looks like text with an embedded hyperlink bubble (Google Sheets may do something else?)
+    // Otherwise return as plain text
     return text;
   }
 
@@ -299,21 +299,31 @@
       }
     });
 
-    // Function to merge rows, all* rows added on top for matching suffixes
+    // Updated mergeWithAllRows: add each all# row once at the top
     function mergeWithAllRows(rows) {
       let merged = [];
-      // Extract suffix from user IDs (last char 1-4)
+
+      // Collect unique suffixes from user's rows
+      const suffixes = new Set();
+
       rows.forEach(row => {
-        merged.push(row);
         const suffixMatch = row.id.match(/([1-4])$/);
         if (suffixMatch) {
-          const suffix = suffixMatch[1];
-          const allKey = "all" + suffix;
-          if (allRowsBySuffix[allKey]) {
-            merged.push(allRowsBySuffix[allKey]);
-          }
+          suffixes.add(suffixMatch[1]);
         }
       });
+
+      // Add each relevant all# row once at the top
+      suffixes.forEach(suffix => {
+        const allKey = "all" + suffix;
+        if (allRowsBySuffix[allKey]) {
+          merged.push(allRowsBySuffix[allKey]);
+        }
+      });
+
+      // Then add all user rows after
+      merged = merged.concat(rows);
+
       return merged;
     }
 
