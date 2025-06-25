@@ -39,6 +39,17 @@
       margin-bottom: 5px;
       color: #00558C;
     }
+    /* New styles for activity and location text */
+    .card .activity-text {
+      font-size: 1.1em; /* Customize font size for activity here */
+      font-style: bold;
+      margin-bottom: 6px;
+    }
+    .card .location-text {
+      font-size: 0.9em; /* Customize font size for location here */
+      font-style: italic;
+      color: #444;
+    }
     #vcu-logo {
       display: block;
       margin: 0 auto 20px;
@@ -209,6 +220,32 @@
     });
   }
 
+  // Helper to parse Google Sheets HYPERLINK formulas and render links
+  function extractLink(text) {
+    if (!text) return "";
+
+    // Detect HYPERLINK formula: =HYPERLINK("url","display text")
+    // or just raw URL or plain text
+    const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
+    const match = text.match(hyperlinkFormulaRegex);
+    if (match) {
+      const url = match[1];
+      const display = match[2];
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${display}</a>`;
+    }
+
+    // Check if text contains a markdown style link [text](url)
+    // (optional if you want to support this)
+
+    // Otherwise check if text is URL (http or https)
+    if (/^(https?:\/\/)/i.test(text)) {
+      return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    }
+
+    // Otherwise return as plain text, but if it looks like text with an embedded hyperlink bubble (Google Sheets may do something else?)
+    return text;
+  }
+
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -237,7 +274,7 @@
         const formatted = rows.map(r => ({
           id: r.c[0]?.v?.toLowerCase()?.trim() || "",
           time: r.c[1]?.v || "Unknown Time",
-          activity: r.c[2]?.f || r.c[2]?.v || "",
+          activity: r.c[2]?.f || r.c[2]?.v || "", // Use formatted field if exists for hyperlink formula
           location: r.c[3]?.f || r.c[3]?.v || "",
           tab: tab
         })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
@@ -248,55 +285,90 @@
       }
     }
 
+    // MASTER PASSWORD CHECK after data load for smoother UX
     isAdmin = password === MASTER_PASSWORD;
     document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
     document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
-    // Filter rows for user, including 'all#' rows applying to all user IDs ending with that number
-    const userFiltered = allRows.filter(r =>
-      r.id === userId ||
-      (r.id === `all${userId.slice(-1)}` && userId.match(/[a-zA-Z]+\d$/))
-    );
+    // Apply ALL1/ALL2/ALL3/ALL4 rows logic:
+    // Collect all special "all" rows keyed by suffix number
+    const allRowsBySuffix = {};
+    allRows.forEach(row => {
+      if (/^all[1-4]$/.test(row.id)) {
+        allRowsBySuffix[row.id] = row;
+      }
+    });
 
-    // Separate TOP rows and others
-    const topRows = userFiltered.filter(r => r.activity.toUpperCase().includes("TOP"));
-    const regularRows = userFiltered.filter(r => !r.activity.toUpperCase().includes("TOP"));
+    // Function to merge rows, all* rows added on top for matching suffixes
+    function mergeWithAllRows(rows) {
+      let merged = [];
+      // Extract suffix from user IDs (last char 1-4)
+      rows.forEach(row => {
+        merged.push(row);
+        const suffixMatch = row.id.match(/([1-4])$/);
+        if (suffixMatch) {
+          const suffix = suffixMatch[1];
+          const allKey = "all" + suffix;
+          if (allRowsBySuffix[allKey]) {
+            merged.push(allRowsBySuffix[allKey]);
+          }
+        }
+      });
+      return merged;
+    }
 
-    const createCardHTML = (item) => {
+    // Separate TOP rows (those with activity "TOP", case-insensitive)
+    function filterTopRows(rows) {
+      const topRows = rows.filter(r => r.activity.trim().toUpperCase() === "TOP");
+      const otherRows = rows.filter(r => r.activity.trim().toUpperCase() !== "TOP");
+      return { topRows, otherRows };
+    }
+
+    // Filter user rows
+    let userFiltered = allRows.filter(r => r.id === userId);
+    if (!isAdmin) {
+      if (!userFiltered.length) {
+        container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
+        return;
+      }
+      // Merge with all* rows
+      userFiltered = mergeWithAllRows(userFiltered);
+
+      // Separate TOP rows
+      const { topRows, otherRows } = filterTopRows(userFiltered);
+
+      // Render cards helper
+      const renderCards = rows => rows.map(item => createCardHTML(item)).join("");
+
+      // Render top rows first, then others
+      container.innerHTML = `<div class="schedule-grid">${renderCards(topRows)}${renderCards(otherRows)}</div>`;
+      return;
+    }
+
+    // Admin mode - show all sessions grouped
+    container.innerHTML = "";
+    masterDiv.innerHTML = "";
+
+    // Group rows by tab/session
+    const sessionGroups = {};
+    for (const tab of allTabs) sessionGroups[tab] = [];
+    allRows.forEach(item => {
+      if (sessionGroups[item.tab]) sessionGroups[item.tab].push(item);
+      else sessionGroups["Transfer Session"].push(item);
+    });
+
+    // Helper function to create the card HTML with link parsing and activity/location classes
+    function createCardHTML(item) {
       const activityHTML = extractLink(item.activity);
       const locationHTML = extractLink(item.location);
       return `
         <div class="card">
           <strong>${item.time}</strong>
-          ${activityHTML}<br />
-          <em>${locationHTML}</em>
+          <div class="activity-text">${activityHTML}</div>
+          <div class="location-text">${locationHTML}</div>
+          <small style="color:gray;">User ID: ${item.id}</small>
         </div>`;
-    };
-
-    if (!isAdmin) {
-      if (userFiltered.length === 0) {
-        container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
-        return;
-      }
-      // Regular user schedule view - TOP rows at the top
-      const cards = [...topRows, ...regularRows].map(createCardHTML).join("");
-      container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
-      return;
     }
-
-    // Admin view with sessions dropdown
-    container.innerHTML = "";
-    masterDiv.innerHTML = "";
-
-    // Group by tab/session first
-    const sessionGroups = {};
-    for (const tab of allTabs) {
-      sessionGroups[tab] = [];
-    }
-    allRows.forEach(item => {
-      if (sessionGroups[item.tab]) sessionGroups[item.tab].push(item);
-      else sessionGroups["Transfer Session"].push(item);
-    });
 
     for (const [session, entries] of Object.entries(sessionGroups)) {
       if (entries.length === 0) continue;
@@ -361,6 +433,12 @@
         for (const name of uniqueNames) {
           const filtered = groupEntries.filter(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase() === name);
 
+          // Merge each user's entries with any matching all* rows
+          const mergedEntries = mergeWithAllRows(filtered);
+
+          // Separate TOP rows
+          const { topRows, otherRows } = filterTopRows(mergedEntries);
+
           const userSection = document.createElement("div");
           userSection.className = "user-section";
 
@@ -373,17 +451,12 @@
           content.className = "dropdown-content schedule-grid";
           content.style.display = "none";
 
-          for (const item of filtered) {
-            const activityHTML = extractLink(item.activity);
-            const locationHTML = extractLink(item.location);
-
-            content.innerHTML += `
-              <div class="card">
-                <strong>${item.time}</strong>
-                ${activityHTML}<br />
-                <em>${locationHTML}</em><br />
-                <small style="color:gray;">User ID: ${item.id}</small>
-              </div>`;
+          // Render top rows first, then others
+          for (const item of topRows) {
+            content.innerHTML += createCardHTML(item);
+          }
+          for (const item of otherRows) {
+            content.innerHTML += createCardHTML(item);
           }
 
           label.addEventListener("click", () => {
@@ -413,37 +486,6 @@
 
       masterDiv.appendChild(sessionSection);
     }
-  }
-
-  // Extract hyperlink from Google Sheets formula or regular text
-  function extractLink(cellValue) {
-    if (!cellValue) return "";
-
-    // Create temporary element to parse HTML if any
-    const temp = document.createElement("div");
-    temp.innerHTML = cellValue;
-
-    // Find hyperlink if exists
-    const anchor = temp.querySelector("a");
-    if (anchor) {
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.style.color = "#00558C";
-      anchor.style.textDecoration = "underline";
-      return anchor.outerHTML;
-    }
-
-    // If no anchor tag, check if the string contains a hyperlink formula pattern
-    // This usually won't appear here as Google Sheets provides it in .f property as HTML string, but fallback:
-    const urlPattern = /(https?:\/\/[^\s]+)/g;
-    if (urlPattern.test(cellValue)) {
-      const replaced = cellValue.replace(urlPattern, (url) => {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#00558C; text-decoration:underline;">${url}</a>`;
-      });
-      return replaced;
-    }
-
-    return temp.textContent || cellValue;
   }
 </script>
 </body>
