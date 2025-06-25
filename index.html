@@ -208,24 +208,25 @@
     const term = document.getElementById("masterSearch").value.trim().toLowerCase();
     const userSections = document.querySelectorAll(".user-section");
     userSections.forEach(section => {
-      const textContent = section.textContent.toLowerCase();
+      const textContent = section.innerText.toLowerCase();
       section.style.display = textContent.includes(term) ? "" : "none";
     });
 
-    // Also hide empty session groups if all children hidden
+    const groupSections = document.querySelectorAll(".group-section");
+    groupSections.forEach(group => {
+      const visibleUsers = [...group.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
+      group.style.display = visibleUsers ? "" : "none";
+    });
+
     const sessionGroups = document.querySelectorAll(".session-group");
     sessionGroups.forEach(session => {
-      const visibleChildren = [...session.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
-      session.style.display = visibleChildren ? "" : "none";
+      const visibleGroups = [...session.querySelectorAll(".group-section")].some(g => g.style.display !== "none");
+      session.style.display = visibleGroups ? "" : "none";
     });
   }
 
-  // Helper to parse Google Sheets HYPERLINK formulas and render links
   function extractLink(text) {
     if (!text) return "";
-
-    // Detect HYPERLINK formula: =HYPERLINK("url","display text")
-    // or just raw URL or plain text
     const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
     const match = text.match(hyperlinkFormulaRegex);
     if (match) {
@@ -233,16 +234,9 @@
       const display = match[2];
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${display}</a>`;
     }
-
-    // Check if text contains a markdown style link [text](url)
-    // (optional if you want to support this)
-
-    // Otherwise check if text is URL (http or https)
     if (/^(https?:\/\/)/i.test(text)) {
       return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     }
-
-    // Otherwise return as plain text
     return text;
   }
 
@@ -254,15 +248,13 @@
     container.innerHTML = "Loading...";
     masterDiv.innerHTML = "";
 
-    const SHEET_TABS = isAdmin ? allTabs : getTodayTabs();
-
+    const SHEET_TABS = getTodayTabs();
     if (!SHEET_TABS.length) {
       container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
       return;
     }
 
     let allRows = [];
-
     for (const tab of SHEET_TABS) {
       try {
         const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
@@ -274,7 +266,7 @@
         const formatted = rows.map(r => ({
           id: r.c[0]?.v?.toLowerCase()?.trim() || "",
           time: r.c[1]?.v || "Unknown Time",
-          activity: r.c[2]?.f || r.c[2]?.v || "", // Use formatted field if exists for hyperlink formula
+          activity: r.c[2]?.f || r.c[2]?.v || "",
           location: r.c[3]?.f || r.c[3]?.v || "",
           tab: tab
         })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
@@ -285,13 +277,10 @@
       }
     }
 
-    // MASTER PASSWORD CHECK after data load for smoother UX
     isAdmin = password === MASTER_PASSWORD;
     document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
     document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
-    // Apply ALL1/ALL2/ALL3/ALL4 rows logic:
-    // Collect all special "all" rows keyed by suffix number
     const allRowsBySuffix = {};
     allRows.forEach(row => {
       if (/^all[1-4]$/.test(row.id)) {
@@ -299,75 +288,49 @@
       }
     });
 
-    // Updated mergeWithAllRows: add each all# row once at the top
     function mergeWithAllRows(rows) {
       let merged = [];
-
-      // Collect unique suffixes from user's rows
       const suffixes = new Set();
-
       rows.forEach(row => {
         const suffixMatch = row.id.match(/([1-4])$/);
-        if (suffixMatch) {
-          suffixes.add(suffixMatch[1]);
-        }
+        if (suffixMatch) suffixes.add(suffixMatch[1]);
       });
-
-      // Add each relevant all# row once at the top
       suffixes.forEach(suffix => {
         const allKey = "all" + suffix;
-        if (allRowsBySuffix[allKey]) {
-          merged.push(allRowsBySuffix[allKey]);
-        }
+        if (allRowsBySuffix[allKey]) merged.push(allRowsBySuffix[allKey]);
       });
-
-      // Then add all user rows after
       merged = merged.concat(rows);
-
       return merged;
     }
 
-    // Separate TOP rows (those with activity "TOP", case-insensitive)
     function filterTopRows(rows) {
       const topRows = rows.filter(r => r.activity.trim().toUpperCase() === "TOP");
       const otherRows = rows.filter(r => r.activity.trim().toUpperCase() !== "TOP");
       return { topRows, otherRows };
     }
 
-    // Filter user rows
     let userFiltered = allRows.filter(r => r.id === userId);
     if (!isAdmin) {
       if (!userFiltered.length) {
         container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
         return;
       }
-      // Merge with all* rows
       userFiltered = mergeWithAllRows(userFiltered);
-
-      // Separate TOP rows
       const { topRows, otherRows } = filterTopRows(userFiltered);
-
-      // Render cards helper
       const renderCards = rows => rows.map(item => createCardHTML(item)).join("");
-
-      // Render top rows first, then others
       container.innerHTML = `<div class="schedule-grid">${renderCards(topRows)}${renderCards(otherRows)}</div>`;
       return;
     }
 
-    // Admin mode - show all sessions grouped
     container.innerHTML = "";
     masterDiv.innerHTML = "";
 
-    // Group rows by tab/session
     const sessionGroups = {};
-    for (const tab of allTabs) sessionGroups[tab] = [];
+    for (const tab of SHEET_TABS) sessionGroups[tab] = [];
     allRows.forEach(item => {
       if (sessionGroups[item.tab]) sessionGroups[item.tab].push(item);
-      else sessionGroups["Transfer Session"].push(item);
     });
 
-    // Helper function to create the card HTML with link parsing and activity/location classes
     function createCardHTML(item) {
       const activityHTML = extractLink(item.activity);
       const locationHTML = extractLink(item.location);
@@ -383,44 +346,35 @@
     for (const [session, entries] of Object.entries(sessionGroups)) {
       if (entries.length === 0) continue;
 
-      // Create session dropdown
       const sessionSection = document.createElement("div");
       sessionSection.className = "session-group";
 
       const sessionLabel = document.createElement("div");
       sessionLabel.className = "dropdown-label";
-      sessionLabel.innerHTML = `<span>${session} (${[...new Set(entries.map(e => e.id))].length})</span> <span class="arrow">▸</span>`;
+      sessionLabel.innerHTML = `<span>${session}</span> <span class="arrow">▸</span>`;
       sessionSection.appendChild(sessionLabel);
 
       const sessionContent = document.createElement("div");
       sessionContent.className = "dropdown-content";
       sessionSection.appendChild(sessionContent);
 
-      // Group entries by suffix (1-4) inside session
       const groups = {
-        "Day 1": [],
-        "Day 2": [],
-        "Families Day 1": [],
-        "Families Day 2": [],
-        "Unmatched IDs": []
+        "Day 1": [], "Day 2": [], "Families Day 1": [], "Families Day 2": [], "Unmatched IDs": []
       };
 
       for (const item of entries) {
         const id = item.id.toLowerCase().trim();
-        if (!id) continue;
         const match = id.match(/^(.+?)([1-4])$/);
-        if (!match) {
-          groups["Unmatched IDs"].push(item);
-          continue;
+        if (!match) groups["Unmatched IDs"].push(item);
+        else {
+          const suffix = match[2];
+          if (suffix === "1") groups["Day 1"].push(item);
+          else if (suffix === "2") groups["Day 2"].push(item);
+          else if (suffix === "3") groups["Families Day 1"].push(item);
+          else if (suffix === "4") groups["Families Day 2"].push(item);
         }
-        const suffix = match[2];
-        if (suffix === "1") groups["Day 1"].push(item);
-        else if (suffix === "2") groups["Day 2"].push(item);
-        else if (suffix === "3") groups["Families Day 1"].push(item);
-        else if (suffix === "4") groups["Families Day 2"].push(item);
       }
 
-      // Create dropdowns for each group inside session
       for (const [group, groupEntries] of Object.entries(groups)) {
         if (groupEntries.length === 0) continue;
 
@@ -437,16 +391,11 @@
         groupContent.className = "dropdown-content schedule-grid";
         groupSection.appendChild(groupContent);
 
-        // Group entries by unique user name (letters only)
         const uniqueNames = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))];
 
         for (const name of uniqueNames) {
           const filtered = groupEntries.filter(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase() === name);
-
-          // Merge each user's entries with any matching all* rows
           const mergedEntries = mergeWithAllRows(filtered);
-
-          // Separate TOP rows
           const { topRows, otherRows } = filterTopRows(mergedEntries);
 
           const userSection = document.createElement("div");
@@ -461,13 +410,8 @@
           content.className = "dropdown-content schedule-grid";
           content.style.display = "none";
 
-          // Render top rows first, then others
-          for (const item of topRows) {
-            content.innerHTML += createCardHTML(item);
-          }
-          for (const item of otherRows) {
-            content.innerHTML += createCardHTML(item);
-          }
+          for (const item of topRows) content.innerHTML += createCardHTML(item);
+          for (const item of otherRows) content.innerHTML += createCardHTML(item);
 
           label.addEventListener("click", () => {
             const expanded = content.style.display === "block";
