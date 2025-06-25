@@ -39,14 +39,13 @@
       margin-bottom: 5px;
       color: #00558C;
     }
-    /* New styles for activity and location text */
     .card .activity-text {
-      font-size: 1.0em; /* Customize font size for activity here */
+      font-size: 1.0em;
       font-weight: bold;
       margin-bottom: 6px;
     }
     .card .location-text {
-      font-size: 0.8em; /* Customize font size for location here */
+      font-size: 0.8em;
       font-style: italic;
       color: #444;
     }
@@ -128,52 +127,29 @@
   <div id="scheduleContainer"></div>
   <div id="masterSchedule"></div>
 
-<script>
+  <script>
   const SHEET_ID = "1Uafwo7ikADBeXOnof6Fq1LSKXVWfP9kJDMWsg2VirWE";
-  const allTabs = [
-    "6/23-24", "6/26-27", "6/30", "7/7-8", "7/10-11", "7/14-15", "7/17-18", "7/21-22", "7/24", "8/15", "Transfer Session"
-  ];
-
+  const allTabs = ["6/23-24", "6/26-27", "6/30", "7/7-8", "7/10-11", "7/14-15", "7/17-18", "7/21-22", "7/24", "8/15", "Transfer Session"];
   const sessionDateMap = {
-    "2025-06-18": "6/23-24",
-    "2025-06-20": "6/23-24",
-    "2025-06-21": "6/23-24",
-    "2025-06-22": "6/23-24",
-    "2025-06-23": "6/23-24",
-    "2025-06-24": "6/23-24",
-    "2025-06-25": "6/26-27",
-    "2025-06-26": "6/26-27",
-    "2025-06-27": "6/26-27",
+    "2025-06-23": "6/23-24", "2025-06-24": "6/23-24",
+    "2025-06-25": "6/26-27", "2025-06-26": "6/26-27", "2025-06-27": "6/26-27",
     "2025-06-30": "6/30",
-    "2025-07-07": "7/7-8",
-    "2025-07-08": "7/7-8",
-    "2025-07-10": "7/10-11",
-    "2025-07-11": "7/10-11",
-    "2025-07-14": "7/14-15",
-    "2025-07-15": "7/14-15",
-    "2025-07-17": "7/17-18",
-    "2025-07-18": "7/17-18",
-    "2025-07-21": "7/21-22",
-    "2025-07-22": "7/21-22",
-    "2025-07-24": "7/24",
-    "2025-08-24": "8/15"
+    "2025-07-07": "7/7-8", "2025-07-08": "7/7-8",
+    "2025-07-10": "7/10-11", "2025-07-11": "7/10-11",
+    "2025-07-14": "7/14-15", "2025-07-15": "7/14-15",
+    "2025-07-17": "7/17-18", "2025-07-18": "7/17-18",
+    "2025-07-21": "7/21-22", "2025-07-22": "7/21-22",
+    "2025-07-24": "7/24", "2025-08-15": "8/15"
   };
-
   const MASTER_PASSWORD = "master123";
   let isAdmin = false;
 
-  function getTodayDateString() {
-    return new Date().toISOString().split("T")[0];
-  }
-
-  function getTodayTabs() {
+  const getTodayDateString = () => new Date().toISOString().split("T")[0];
+  const getTodayTabs = () => {
     const session = sessionDateMap[getTodayDateString()];
-    if (!session) {
-      alert("No session is mapped for today.");
-      return [];
-    }
+    if (!session) return [];
     return allTabs.filter(tab => tab === session);
-  }
+  };
 
   function togglePassword() {
     const container = document.getElementById("masterPasswordContainer");
@@ -191,18 +167,10 @@
     document.getElementById("masterSchedule").innerHTML = "";
   }
 
-  document.getElementById("userId").addEventListener("keydown", e => {
-    if (e.key === "Enter") loadSchedule();
-  });
-
-  document.getElementById("masterPassword").addEventListener("keydown", e => {
-    if (e.key === "Enter") loadSchedule();
-  });
-
+  document.getElementById("userId").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
+  document.getElementById("masterPassword").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
   document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
-  document.getElementById("masterSearch").addEventListener("keydown", e => {
-    if (e.key === "Enter") filterMasterDropdowns();
-  });
+  document.getElementById("masterSearch").addEventListener("keydown", e => { if (e.key === "Enter") filterMasterDropdowns(); });
 
   function filterMasterDropdowns() {
     const term = document.getElementById("masterSearch").value.trim().toLowerCase();
@@ -211,17 +179,13 @@
       const textContent = section.innerText.toLowerCase();
       section.style.display = textContent.includes(term) ? "" : "none";
     });
-
-    const groupSections = document.querySelectorAll(".group-section");
-    groupSections.forEach(group => {
-      const visibleUsers = [...group.querySelectorAll(".user-section")].some(s => s.style.display !== "none");
-      group.style.display = visibleUsers ? "" : "none";
+    document.querySelectorAll(".group-section").forEach(group => {
+      const visible = [...group.querySelectorAll(".user-section")].some(u => u.style.display !== "none");
+      group.style.display = visible ? "" : "none";
     });
-
-    const sessionGroups = document.querySelectorAll(".session-group");
-    sessionGroups.forEach(session => {
-      const visibleGroups = [...session.querySelectorAll(".group-section")].some(g => g.style.display !== "none");
-      session.style.display = visibleGroups ? "" : "none";
+    document.querySelectorAll(".session-group").forEach(sess => {
+      const visible = [...sess.querySelectorAll(".group-section")].some(g => g.style.display !== "none");
+      sess.style.display = visible ? "" : "none";
     });
   }
 
@@ -229,14 +193,8 @@
     if (!text) return "";
     const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
     const match = text.match(hyperlinkFormulaRegex);
-    if (match) {
-      const url = match[1];
-      const display = match[2];
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${display}</a>`;
-    }
-    if (/^(https?:\/\/)/i.test(text)) {
-      return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-    }
+    if (match) return `<a href="${match[1]}" target="_blank" rel="noopener noreferrer">${match[2]}</a>`;
+    if (/^(https?:\/\/)/i.test(text)) return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     return text;
   }
 
@@ -262,7 +220,6 @@
         const text = await res.text();
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
-
         const formatted = rows.map(r => ({
           id: r.c[0]?.v?.toLowerCase()?.trim() || "",
           time: r.c[1]?.v || "Unknown Time",
@@ -270,7 +227,6 @@
           location: r.c[3]?.f || r.c[3]?.v || "",
           tab: tab
         })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
-
         allRows = allRows.concat(formatted);
       } catch (err) {
         console.error(`Error loading sheet "${tab}":`, err);
@@ -282,43 +238,36 @@
     document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
     const allRowsBySuffix = {};
-    allRows.forEach(row => {
-      if (/^all[1-4]$/.test(row.id)) {
-        allRowsBySuffix[row.id] = row;
-      }
+    allRows.forEach(row => { if (/^all[1-4]$/.test(row.id)) allRowsBySuffix[row.id] = row; });
+
+    const mergeWithAllRows = rows => {
+      const suffixes = new Set(rows.map(r => r.id.match(/([1-4])$/)?.[1]).filter(Boolean));
+      const allPrepended = [...suffixes].map(s => allRowsBySuffix[`all${s}`]).filter(Boolean);
+      return [...allPrepended, ...rows];
+    };
+
+    const filterTopRows = rows => ({
+      topRows: rows.filter(r => r.activity.trim().toUpperCase() === "TOP"),
+      otherRows: rows.filter(r => r.activity.trim().toUpperCase() !== "TOP")
     });
 
-    function mergeWithAllRows(rows) {
-      let merged = [];
-      const suffixes = new Set();
-      rows.forEach(row => {
-        const suffixMatch = row.id.match(/([1-4])$/);
-        if (suffixMatch) suffixes.add(suffixMatch[1]);
-      });
-      suffixes.forEach(suffix => {
-        const allKey = "all" + suffix;
-        if (allRowsBySuffix[allKey]) merged.push(allRowsBySuffix[allKey]);
-      });
-      merged = merged.concat(rows);
-      return merged;
-    }
+    const createCardHTML = item => `
+      <div class="card">
+        <strong>${item.time}</strong>
+        <div class="activity-text">${extractLink(item.activity)}</div>
+        <div class="location-text">${extractLink(item.location)}</div>
+        <small style="color:gray;">User ID: ${item.id}</small>
+      </div>`;
 
-    function filterTopRows(rows) {
-      const topRows = rows.filter(r => r.activity.trim().toUpperCase() === "TOP");
-      const otherRows = rows.filter(r => r.activity.trim().toUpperCase() !== "TOP");
-      return { topRows, otherRows };
-    }
-
-    let userFiltered = allRows.filter(r => r.id === userId);
     if (!isAdmin) {
+      let userFiltered = allRows.filter(r => r.id === userId);
       if (!userFiltered.length) {
         container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
         return;
       }
       userFiltered = mergeWithAllRows(userFiltered);
       const { topRows, otherRows } = filterTopRows(userFiltered);
-      const renderCards = rows => rows.map(item => createCardHTML(item)).join("");
-      container.innerHTML = `<div class="schedule-grid">${renderCards(topRows)}${renderCards(otherRows)}</div>`;
+      container.innerHTML = `<div class="schedule-grid">${topRows.map(createCardHTML).join("")}${otherRows.map(createCardHTML).join("")}</div>`;
       return;
     }
 
@@ -327,28 +276,13 @@
 
     const sessionGroups = {};
     for (const tab of SHEET_TABS) sessionGroups[tab] = [];
-    allRows.forEach(item => {
-      if (sessionGroups[item.tab]) sessionGroups[item.tab].push(item);
-    });
-
-    function createCardHTML(item) {
-      const activityHTML = extractLink(item.activity);
-      const locationHTML = extractLink(item.location);
-      return `
-        <div class="card">
-          <strong>${item.time}</strong>
-          <div class="activity-text">${activityHTML}</div>
-          <div class="location-text">${locationHTML}</div>
-          <small style="color:gray;">User ID: ${item.id}</small>
-        </div>`;
-    }
+    allRows.forEach(row => sessionGroups[row.tab]?.push(row));
 
     for (const [session, entries] of Object.entries(sessionGroups)) {
-      if (entries.length === 0) continue;
+      if (!entries.length) continue;
 
       const sessionSection = document.createElement("div");
       sessionSection.className = "session-group";
-
       const sessionLabel = document.createElement("div");
       sessionLabel.className = "dropdown-label";
       sessionLabel.innerHTML = `<span>${session}</span> <span class="arrow">▸</span>`;
@@ -358,33 +292,28 @@
       sessionContent.className = "dropdown-content";
       sessionSection.appendChild(sessionContent);
 
-      const groups = {
-        "Day 1": [], "Day 2": [], "Families Day 1": [], "Families Day 2": [], "Unmatched IDs": []
-      };
-
-      for (const item of entries) {
-        const id = item.id.toLowerCase().trim();
-        const match = id.match(/^(.+?)([1-4])$/);
-        if (!match) groups["Unmatched IDs"].push(item);
+      const groupMap = { "Day 1": [], "Day 2": [], "Families Day 1": [], "Families Day 2": [], "Unmatched IDs": [] };
+      entries.forEach(row => {
+        const match = row.id.match(/^(.+?)([1-4])$/);
+        if (!match) groupMap["Unmatched IDs"].push(row);
         else {
           const suffix = match[2];
-          if (suffix === "1") groups["Day 1"].push(item);
-          else if (suffix === "2") groups["Day 2"].push(item);
-          else if (suffix === "3") groups["Families Day 1"].push(item);
-          else if (suffix === "4") groups["Families Day 2"].push(item);
+          if (suffix === "1") groupMap["Day 1"].push(row);
+          else if (suffix === "2") groupMap["Day 2"].push(row);
+          else if (suffix === "3") groupMap["Families Day 1"].push(row);
+          else if (suffix === "4") groupMap["Families Day 2"].push(row);
         }
-      }
+      });
 
-      for (const [group, groupEntries] of Object.entries(groups)) {
-        if (groupEntries.length === 0) continue;
+      for (const [groupName, groupEntries] of Object.entries(groupMap)) {
+        if (!groupEntries.length) continue;
 
         const groupSection = document.createElement("div");
         groupSection.className = "group-section";
-
         const groupLabel = document.createElement("div");
         groupLabel.className = "dropdown-label";
         const uniqueCount = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))].length;
-        groupLabel.innerHTML = `<span>${group} (${uniqueCount})</span> <span class="arrow">▸</span>`;
+        groupLabel.innerHTML = `<span>${groupName} (${uniqueCount})</span> <span class="arrow">▸</span>`;
         groupSection.appendChild(groupLabel);
 
         const groupContent = document.createElement("div");
@@ -392,34 +321,30 @@
         groupSection.appendChild(groupContent);
 
         const uniqueNames = [...new Set(groupEntries.map(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase()))];
-
         for (const name of uniqueNames) {
           const filtered = groupEntries.filter(e => e.id.replace(/[^a-zA-Z]/g, "").toUpperCase() === name);
-          const mergedEntries = mergeWithAllRows(filtered);
-          const { topRows, otherRows } = filterTopRows(mergedEntries);
+          const merged = mergeWithAllRows(filtered);
+          const { topRows, otherRows } = filterTopRows(merged);
 
           const userSection = document.createElement("div");
           userSection.className = "user-section";
+          const userLabel = document.createElement("div");
+          userLabel.className = "dropdown-label";
+          userLabel.innerHTML = `<span>${name}</span> <span class="arrow">▸</span>`;
+          const userContent = document.createElement("div");
+          userContent.className = "dropdown-content schedule-grid";
+          userContent.style.display = "none";
+          topRows.forEach(r => userContent.innerHTML += createCardHTML(r));
+          otherRows.forEach(r => userContent.innerHTML += createCardHTML(r));
 
-          const label = document.createElement("div");
-          label.className = "dropdown-label";
-          label.innerHTML = `<span>${name}</span> <span class="arrow">▸</span>`;
-          userSection.appendChild(label);
-
-          const content = document.createElement("div");
-          content.className = "dropdown-content schedule-grid";
-          content.style.display = "none";
-
-          for (const item of topRows) content.innerHTML += createCardHTML(item);
-          for (const item of otherRows) content.innerHTML += createCardHTML(item);
-
-          label.addEventListener("click", () => {
-            const expanded = content.style.display === "block";
-            content.style.display = expanded ? "none" : "block";
-            label.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
+          userLabel.addEventListener("click", () => {
+            const expanded = userContent.style.display === "block";
+            userContent.style.display = expanded ? "none" : "block";
+            userLabel.querySelector(".arrow").style.transform = expanded ? "rotate(0deg)" : "rotate(90deg)";
           });
 
-          userSection.appendChild(content);
+          userSection.appendChild(userLabel);
+          userSection.appendChild(userContent);
           groupContent.appendChild(userSection);
         }
 
