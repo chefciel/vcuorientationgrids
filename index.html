@@ -209,15 +209,6 @@
     });
   }
 
-  // Helper to add target="_blank" and rel="noopener noreferrer" to all links inside container
-  function fixLinks(containerElement) {
-    const links = containerElement.querySelectorAll('a');
-    links.forEach(a => {
-      a.setAttribute('target', '_blank');
-      a.setAttribute('rel', 'noopener noreferrer');
-    });
-  }
-
   async function loadSchedule() {
     const userId = document.getElementById("userId").value.trim().toLowerCase();
     const password = document.getElementById("masterPassword").value.trim();
@@ -243,13 +234,27 @@
         const json = JSON.parse(text.substring(47).slice(0, -2));
         const rows = json.table.rows;
 
-        const formatted = rows.map(r => ({
-          id: r.c[0]?.v?.toLowerCase()?.trim() || "",
-          time: r.c[1]?.v || "Unknown Time",
-          activity: r.c[2]?.f || r.c[2]?.v || "",     // use formatted html if exists
-          location: r.c[3]?.f || r.c[3]?.v || "",     // use formatted html if exists
-          tab: tab
-        })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+        // Modified parsing to handle multiple comma-separated user IDs in first column
+        const formatted = [];
+        rows.forEach(r => {
+          const userIdsRaw = r.c[0]?.v || "";
+          const userIds = userIdsRaw.split(",").map(id => id.trim().toLowerCase()).filter(id => id);
+          const time = r.c[1]?.v || "Unknown Time";
+          const activity = r.c[2]?.v || "";
+          const location = r.c[3]?.v || "";
+
+          userIds.forEach(id => {
+            if (id && id !== "hidden" && id !== "_blank_") {
+              formatted.push({
+                id: id,
+                time: time,
+                activity: activity,
+                location: location,
+                tab: tab
+              });
+            }
+          });
+        });
 
         allRows = allRows.concat(formatted);
       } catch (err) {
@@ -277,7 +282,6 @@
           <em>${item.location}</em>
         </div>`).join("");
       container.innerHTML = `<div class="schedule-grid">${cards}</div>`;
-      fixLinks(container);
       return;
     }
 
@@ -378,7 +382,6 @@
                 <em>${item.location}</em><br />
                 <small style="color:gray;">User ID: ${item.id}</small>
               </div>`;
-            fixLinks(content);
           }
 
           label.addEventListener("click", () => {
