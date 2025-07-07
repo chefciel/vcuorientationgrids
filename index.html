@@ -286,8 +286,46 @@ async function loadSchedule() {
       + personal.map(createCardHTML).join("")
       + `</div>`;
   } else {
-    container.innerHTML = "<p style='text-align:center;'>Admin Mode: Use search above.</p>";
-    // your master mode logic here...
+    container.innerHTML = "<p style='text-align:center;'>Admin Mode: Use search above or explore below.</p>";
+
+    const groupings = {
+      "Day 1": /^1\d*$/,
+      "Day 2": /^2\d*$/,
+      "Families Day 1": /^f1\d*$/,
+      "Families Day 2": /^f2\d*$/
+    };
+
+    const groupedUsers = {};
+    Object.entries(groupings).forEach(([groupName, regex]) => {
+      const usersInGroup = [...new Set(allRows.map(r => r.id).filter(id => regex.test(id)))];
+      groupedUsers[groupName] = usersInGroup.map(uid => ({
+        id: uid,
+        rows: mergeWithAllRows(allRows.filter(r => r.id === uid))
+      }));
+    });
+
+    const renderDropdown = (userId, rows) => {
+      return `
+        <div class="user-section">
+          <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+            ${userId} <span class="arrow">▾</span>
+          </div>
+          <div class="dropdown-content">
+            <div class="schedule-grid">
+              ${rows.map(createCardHTML).join("")}
+            </div>
+          </div>
+        </div>`;
+    };
+
+    masterDiv.innerHTML = Object.entries(groupedUsers).map(([groupName, users]) => `
+      <div class="session-group">
+        <div class="section-header">${groupName}</div>
+        <div class="group-section">
+          ${users.map(u => renderDropdown(u.id, u.rows)).join("")}
+        </div>
+      </div>
+    `).join("");
   }
 }
 </script>
