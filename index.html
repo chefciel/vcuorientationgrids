@@ -220,6 +220,21 @@ function createCardHTML(item) {
     </div>`;
 }
 
+const renderDropdown = (userId, rows) => {
+  const displayName = userId.replace(/\s+(1-4)$/i, '');
+  return `
+    <div class="user-section">
+      <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+        ${displayName} <span class="arrow">▾</span>
+      </div>
+      <div class="dropdown-content">
+        <div class="schedule-grid">
+          ${rows.map(createCardHTML).join("")}
+        </div>
+      </div>
+    </div>`;
+};
+
 async function loadSchedule() {
   const userId = document.getElementById("userId").value.trim().toLowerCase();
   const password = document.getElementById("masterPassword").value.trim();
@@ -242,7 +257,7 @@ async function loadSchedule() {
       const text = await res.text();
       const json = JSON.parse(text.substring(47).slice(0, -2));
       const rows = json.table.rows.map(r => ({
-        id: r.c[0]?.v?.toLowerCase()?.trim() || "",
+        id: (r.c[0]?.f || r.c[0]?.v || "").toLowerCase().trim(),
         time: r.c[1]?.v || "Unknown Time",
         activity: r.c[2]?.f || r.c[2]?.v || "",
         location: r.c[3]?.f || r.c[3]?.v || "",
@@ -267,7 +282,7 @@ async function loadSchedule() {
   });
 
   const mergeWithAllRows = rows => {
-    const suffixes = new Set(rows.map(r => r.id.match(/([1-4])$/)?.[1]).filter(Boolean));
+    const suffixes = new Set(rows.map(r => r.id.match(/(1|2|3|4)$/i)?.[1]).filter(Boolean));
     const shared = [...suffixes].flatMap(s => allRowsBySuffix[`all${s}`] || []);
     return [...shared, ...rows];
   };
@@ -288,35 +303,29 @@ async function loadSchedule() {
   } else {
     container.innerHTML = "<p style='text-align:center;'>Admin Mode: Use search above or explore below.</p>";
 
-    const groupings = {
-      "Day 1": /^1\d*$/,
-      "Day 2": /^2\d*$/,
-      "Families Day 1": /^f1\d*$/,
-      "Families Day 2": /^f2\d*$/
+    const groupedUsers = {
+      "Day 1": [],
+      "Day 2": [],
+      "Families Day 1": [],
+      "Families Day 2": []
     };
 
-    const groupedUsers = {};
-    Object.entries(groupings).forEach(([groupName, regex]) => {
-      const usersInGroup = [...new Set(allRows.map(r => r.id).filter(id => regex.test(id)))];
-      groupedUsers[groupName] = usersInGroup.map(uid => ({
-        id: uid,
-        rows: mergeWithAllRows(allRows.filter(r => r.id === uid))
-      }));
+    const suffixMap = {
+      "1": "Day 1",
+      "2": "Day 2",
+      "3": "Families Day 1",
+      "4": "Families Day 2"
+    };
+
+    const uniqueUsers = [...new Set(allRows.map(r => r.id))];
+    uniqueUsers.forEach(uid => {
+      const suffix = uid.toLowerCase().split(" ").pop();
+      const groupName = suffixMap[suffix];
+      if (groupName) {
+        const userRows = mergeWithAllRows(allRows.filter(r => r.id === uid));
+        groupedUsers[groupName].push({ id: uid, rows: userRows });
+      }
     });
-
-    const renderDropdown = (userId, rows) => {
-      return `
-        <div class="user-section">
-          <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
-            ${userId} <span class="arrow">▾</span>
-          </div>
-          <div class="dropdown-content">
-            <div class="schedule-grid">
-              ${rows.map(createCardHTML).join("")}
-            </div>
-          </div>
-        </div>`;
-    };
 
     masterDiv.innerHTML = Object.entries(groupedUsers).map(([groupName, users]) => `
       <div class="session-group">
