@@ -185,18 +185,14 @@ function extractLink(text) {
 
 function filterMasterDropdowns() {
   const term = document.getElementById("masterSearch").value.trim().toLowerCase();
-  const userSections = document.querySelectorAll(".user-section");
-  userSections.forEach(section => {
-    const textContent = section.innerText.toLowerCase();
-    section.style.display = textContent.includes(term) ? "" : "none";
+  document.querySelectorAll(".user-section").forEach(section => {
+    section.style.display = section.innerText.toLowerCase().includes(term) ? "" : "none";
   });
   document.querySelectorAll(".group-section").forEach(group => {
-    const visible = [...group.querySelectorAll(".user-section")].some(u => u.style.display !== "none");
-    group.style.display = visible ? "" : "none";
+    group.style.display = [...group.querySelectorAll(".user-section")].some(u => u.style.display !== "none") ? "" : "none";
   });
   document.querySelectorAll(".session-group").forEach(sess => {
-    const visible = [...sess.querySelectorAll(".group-section")].some(g => g.style.display !== "none");
-    sess.style.display = visible ? "" : "none";
+    sess.style.display = [...sess.querySelectorAll(".group-section")].some(g => g.style.display !== "none") ? "" : "none";
   });
 }
 
@@ -221,7 +217,7 @@ function createCardHTML(item) {
 }
 
 const renderDropdown = (userId, rows) => {
-  const displayName = userId.replace(/\s+(1-4)$/i, '');
+  const displayName = userId.replace(/\s+(1|2|3|4)$/i, "");
   return `
     <div class="user-section">
       <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
