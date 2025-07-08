@@ -312,11 +312,32 @@
     }
 
     const renderDropdown = (userId, rows) => {
-      const displayName = userId.replace(/\d$/, '');
-      const globalTags = ["TOP", "ANNOUNCEMENT"];
-      const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
-      const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
+      const renderUserScheduleExpanded = (userId, rows, globalPinnedRows = []) => {
+  const displayName = userId.replace(/\d$/, '');
 
+  const globalTags = ["TOP", "ANNOUNCEMENT"];
+  const pinnedRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
+  pinnedRows.forEach(r => r.times = parseEventTimes(r.time));
+  pinnedRows.sort((a, b) => {
+    if (!a.times || !b.times) return 0;
+    return a.times.start - b.times.start;
+  });
+
+  const normalHTML = pinnedRows.map((r, i) => {
+    const next = pinnedRows[i + 1];
+    const highlightClass = getHighlightClass(r, next);
+    return createCardHTML(r, highlightClass);
+  }).join("");
+
+  const globalHTML = globalPinnedRows.map(row => createCardHTML(row, "")).join("");
+
+  return `
+    <div class="user-section">
+      <div class="section-header">${displayName}</div>
+      <div class="global-tag-section">${globalHTML}</div>
+      <div class="schedule-grid">${normalHTML}</div>
+    </div>`;
+};
       // Sort normalRows by start time for highlight logic
       normalRows.forEach(r => r.times = parseEventTimes(r.time));
       normalRows.sort((a, b) => {
@@ -349,7 +370,7 @@
           </div>
         </div>`;
     };
-
+    
     async function loadSchedule() {
       const userId = document.getElementById("userId").value.trim().toLowerCase();
       const password = document.getElementById("masterPassword").value.trim();
@@ -365,7 +386,7 @@
       }
 
       clearInterval(autoRefreshInterval);
-      autoRefreshInterval = setInterval(() => loadSchedule(), 120000); // Refresh every 2 minutes
+      autoRefreshInterval = setInterval(() => loadSchedule(), 120000);
 
       let allRows = [];
       for (const tab of SHEET_TABS) {
@@ -401,16 +422,14 @@
         }
       });
 
-      // Build user groups
       const groupedByUser = {};
       allRows.forEach(r => {
         if (globalPinnedTags.includes(r.activity.trim().toUpperCase())) return;
-        if (/^all[1-4]$/.test(r.id)) return; // skip allX global
+        if (/^all[1-4]$/.test(r.id)) return;
         if (!groupedByUser[r.id]) groupedByUser[r.id] = [];
         groupedByUser[r.id].push(r);
       });
 
-      // Append global allX rows to matching users
       for (const userIdKey in groupedByUser) {
         for (const suffixKey in allRowsBySuffix) {
           if (userIdKey.endsWith(suffixKey.replace("all", ""))) {
@@ -420,7 +439,6 @@
       }
 
       if (isAdmin) {
-        // Show all users in master dropdowns
         const usersSorted = Object.keys(groupedByUser).sort();
         if (usersSorted.length === 0) {
           masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
@@ -430,7 +448,6 @@
         masterDiv.innerHTML = usersSorted.map(uid => renderDropdown(uid, groupedByUser[uid])).join("");
         container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
       } else {
-        // Normal user view: Show only matching user
         if (!userId) {
           container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
           return;
@@ -441,30 +458,10 @@
           return;
         }
         const userKey = matchedKeys[0];
-        container.innerHTML = renderDropdown(userKey, groupedByUser[userKey]);
+        container.innerHTML = renderUserScheduleExpanded(userKey, groupedByUser[userKey], globalPinnedRows);
         masterDiv.innerHTML = "";
       }
     }
-
-    // Filter dropdowns on master search
-    function filterMasterDropdowns() {
-      const filter = document.getElementById("masterSearch").value.toLowerCase();
-      const masterDiv = document.getElementById("masterSchedule");
-      const userSections = masterDiv.querySelectorAll(".user-section");
-      userSections.forEach(section => {
-        const header = section.querySelector(".dropdown-label").textContent.toLowerCase();
-        if (header.includes(filter)) {
-          section.style.display = "block";
-        } else {
-          section.style.display = "none";
-        }
-      });
-    }
-
-    // Initial setup: hide admin controls
-    document.getElementById("masterPasswordContainer").style.display = "none";
-    document.getElementById("masterSearchContainer").style.display = "none";
-    document.getElementById("exitAdminBtn").style.display = "none";
   </script>
 </body>
 </html>
