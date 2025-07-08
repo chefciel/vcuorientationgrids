@@ -289,7 +289,7 @@
 
     function createCardHTML(item, highlightClass) {
       const globalTags = ["TOP", "ANNOUNCEMENT"];
-      const isPinned = globalTags.includes(item.activity.trim().toUpperCase());
+      const isPinned = globalTags.includes(item.location.trim().toUpperCase());
 
       return `
         <div class="card ${isPinned ? "top-row" : ""} ${highlightClass}">
@@ -306,8 +306,8 @@
   const displayName = userId.replace(/\d$/, '');
 
   // Separate pinned rows and normal rows
-  const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
-  const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
+  const pinnedRows = rows.filter(r => globalTags.includes(r.location.trim().toUpperCase()));
+  const normalRows = rows.filter(r => !globalTags.includes(r.location.trim().toUpperCase()));
 
   // Parse times for normal rows for sorting and highlighting
   normalRows.forEach(r => r.times = parseEventTimes(r.time));
@@ -434,7 +434,7 @@
       document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
       const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
-      const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.activity.trim().toUpperCase()));
+      const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.location.trim().toUpperCase()));
 
       // Group shared allX rows by suffix key
       const allRowsBySuffix = {};
@@ -448,7 +448,7 @@
       // Group rows by user (excluding global pinned and allX)
       const groupedByUser = {};
       allRows.forEach(r => {
-        if (globalPinnedTags.includes(r.activity.trim().toUpperCase())) return;
+        if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
         if (/^all[1-4]$/.test(r.id)) return;
         if (!groupedByUser[r.id]) groupedByUser[r.id] = [];
         groupedByUser[r.id].push(r);
