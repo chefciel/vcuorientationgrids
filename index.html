@@ -57,12 +57,12 @@
     }
     .card.yellow-highlight {
       border-color: #F0B323;
-      background-color: #FFF8E1; /* soft yellow */
+      background-color: #FFF8E1;
       box-shadow: 0 0 8px rgba(240, 179, 35, 0.5);
     }
     .card.red-highlight {
       border-color: #D72631;
-      background-color: #FFE6E8; /* light red/pink */
+      background-color: #FFE6E8;
       box-shadow: 0 0 8px rgba(215, 38, 49, 0.6);
     }
     .card.red-highlight .now-badge {
@@ -82,7 +82,7 @@
       margin: 0 auto 20px;
       max-width: 150px;
     }
-    .dropdown-label {
+    .dropdown-label, .group-label {
       cursor: pointer;
       font-weight: bold;
       padding: 10px;
@@ -93,10 +93,15 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      user-select: none;
     }
-    .dropdown-content {
+    .dropdown-content, .group-content {
       display: none;
       padding: 10px;
+      border: 1px solid #F0B323;
+      border-radius: 8px;
+      background: #fff;
+      margin-bottom: 20px;
     }
     .arrow {
       display: inline-block;
@@ -233,7 +238,6 @@
     }
 
     function parseTimeString(timeStr) {
-      // Convert time string like "9:00 AM" or "12:30 PM" into a Date object today
       const now = new Date();
       const todayStr = now.toDateString();
       try {
@@ -243,7 +247,6 @@
       }
     }
 
-    // Parse time or range, return object {start: Date, end: Date|null}
     function parseEventTimes(timeStr) {
       if (!timeStr) return null;
       const parts = timeStr.split("-");
@@ -261,22 +264,16 @@
       return null;
     }
 
-    // Given array of event objects sorted by start time, determine highlight class for one event based on current time and next event
     function getHighlightClass(event, nextEvent) {
       const now = new Date();
       const FIVE_MINUTES = 5 * 60 * 1000;
 
-      if (!event.times) return ""; // no time info
+      if (!event.times) return "";
 
-      // Yellow highlight: from 5 minutes before start until start
       const yellowStart = new Date(event.times.start.getTime() - FIVE_MINUTES);
       const start = event.times.start;
       const end = event.times.end;
 
-      // For red highlight end time: 
-      // if end exists, use it
-      // else if nextEvent exists, use nextEvent start
-      // else no end - highlight indefinitely
       let redHighlightEnd = null;
       if (end) {
         redHighlightEnd = end;
@@ -284,15 +281,8 @@
         redHighlightEnd = nextEvent.times.start;
       }
 
-      if (now >= yellowStart && now < start) {
-        return "yellow-highlight";
-      }
-
-      if (now >= start) {
-        if (!redHighlightEnd || now < redHighlightEnd) {
-          return "red-highlight";
-        }
-      }
+      if (now >= yellowStart && now < start) return "yellow-highlight";
+      if (now >= start && (!redHighlightEnd || now < redHighlightEnd)) return "red-highlight";
 
       return "";
     }
@@ -311,41 +301,17 @@
         </div>`;
     }
 
-    const renderDropdown = (userId, rows) => {
-      const renderUserScheduleExpanded = (userId, rows, globalPinnedRows = []) => {
-  const displayName = userId.replace(/\d$/, '');
+    function renderDropdown(userId, rows) {
+      const globalTags = ["TOP", "ANNOUNCEMENT"];
+      const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
+      const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
 
-  const globalTags = ["TOP", "ANNOUNCEMENT"];
-  const pinnedRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
-  pinnedRows.forEach(r => r.times = parseEventTimes(r.time));
-  pinnedRows.sort((a, b) => {
-    if (!a.times || !b.times) return 0;
-    return a.times.start - b.times.start;
-  });
-
-  const normalHTML = pinnedRows.map((r, i) => {
-    const next = pinnedRows[i + 1];
-    const highlightClass = getHighlightClass(r, next);
-    return createCardHTML(r, highlightClass);
-  }).join("");
-
-  const globalHTML = globalPinnedRows.map(row => createCardHTML(row, "")).join("");
-
-  return `
-    <div class="user-section">
-      <div class="section-header">${displayName}</div>
-      <div class="global-tag-section">${globalHTML}</div>
-      <div class="schedule-grid">${normalHTML}</div>
-    </div>`;
-};
-      // Sort normalRows by start time for highlight logic
       normalRows.forEach(r => r.times = parseEventTimes(r.time));
       normalRows.sort((a, b) => {
         if (!a.times || !b.times) return 0;
         return a.times.start - b.times.start;
       });
 
-      // For each normal event find next event for highlight calculation
       const normalHTML = normalRows.map((r, i) => {
         const next = normalRows[i + 1];
         const highlightClass = getHighlightClass(r, next);
@@ -356,6 +322,8 @@
         <div class="pinned-rows">
           ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
         </div>` : "";
+
+      const displayName = userId.replace(/\d$/, '');
 
       return `
         <div class="user-section">
@@ -369,10 +337,47 @@
             </div>
           </div>
         </div>`;
+    }
+
+    // Group labels mapping suffix to group name
+    const groupLabels = {
+      "1": "Day 1",
+      "2": "Day 2",
+      "3": "Families Day 1",
+      "4": "Families Day 2"
     };
-    
+
+    // Render group of users with collapsible container
+    function renderGroup(groupKey, users, allRowsBySuffix, globalPinnedRows) {
+      // users is an array of userId strings belonging to this group
+      const userSectionsHTML = users.map(uid => {
+        // For each user, combine user's rows + shared allX rows for suffix
+        let combinedRows = usersRowsMap[uid] || [];
+        if (allRowsBySuffix["all" + groupKey]) {
+          combinedRows = combinedRows.concat(allRowsBySuffix["all" + groupKey]);
+        }
+        return renderDropdown(uid, combinedRows);
+      }).join("");
+
+      return `
+        <div class="group-section">
+          <div class="group-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+            ${groupLabels[groupKey] || "Group " + groupKey} <span class="arrow">▾</span>
+          </div>
+          <div class="group-content">
+            <div class="global-tag-section">
+              ${globalPinnedRows.map(row => createCardHTML(row, "")).join("")}
+            </div>
+            ${userSectionsHTML}
+          </div>
+        </div>
+      `;
+    }
+
+    let usersRowsMap = {}; // global to hold groupedByUser for renderGroup
+
     async function loadSchedule() {
-      const userId = document.getElementById("userId").value.trim().toLowerCase();
+      const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
       const password = document.getElementById("masterPassword").value.trim();
       const container = document.getElementById("scheduleContainer");
       const masterDiv = document.getElementById("masterSchedule");
@@ -414,6 +419,8 @@
 
       const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
       const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.activity.trim().toUpperCase()));
+
+      // Group shared allX rows by suffix key
       const allRowsBySuffix = {};
       allRows.forEach(row => {
         if (/^all[1-4]$/.test(row.id)) {
@@ -422,6 +429,7 @@
         }
       });
 
+      // Group rows by user (excluding global pinned and allX)
       const groupedByUser = {};
       allRows.forEach(r => {
         if (globalPinnedTags.includes(r.activity.trim().toUpperCase())) return;
@@ -430,6 +438,7 @@
         groupedByUser[r.id].push(r);
       });
 
+      // Attach shared allX rows to matching user IDs by suffix
       for (const userIdKey in groupedByUser) {
         for (const suffixKey in allRowsBySuffix) {
           if (userIdKey.endsWith(suffixKey.replace("all", ""))) {
@@ -438,29 +447,64 @@
         }
       }
 
+      usersRowsMap = groupedByUser; // assign global for renderGroup
+
       if (isAdmin) {
-        const usersSorted = Object.keys(groupedByUser).sort();
-        if (usersSorted.length === 0) {
+        // Group user IDs by suffix: 1,2,3,4
+        const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
+        Object.keys(groupedByUser).forEach(uid => {
+          const suffix = uid.slice(-1);
+          if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
+          else groupedBySuffix[suffix] = [uid];
+        });
+
+        if (Object.keys(groupedByUser).length === 0) {
           masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
           container.innerHTML = "";
           return;
         }
-        masterDiv.innerHTML = usersSorted.map(uid => renderDropdown(uid, groupedByUser[uid])).join("");
+
+        // Render each group section
+        let masterHTML = "";
+        for (const groupKey of ["1", "2", "3", "4"]) {
+          if (groupedBySuffix[groupKey] && groupedBySuffix[groupKey].length > 0) {
+            masterHTML += renderGroup(groupKey, groupedBySuffix[groupKey], allRowsBySuffix, globalPinnedRows);
+          }
+        }
+        masterDiv.innerHTML = masterHTML;
         container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
       } else {
-        if (!userId) {
+        if (!userIdInput) {
           container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
           return;
         }
-        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userId));
+        // Find user IDs that include input
+        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userIdInput));
         if (matchedKeys.length === 0) {
-          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userId}</p>`;
+          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userIdInput}</p>`;
           return;
         }
         const userKey = matchedKeys[0];
-        container.innerHTML = renderUserScheduleExpanded(userKey, groupedByUser[userKey], globalPinnedRows);
+        // Separate global pinned rows for user view
+        container.innerHTML = renderDropdown(userKey, groupedByUser[userKey].concat(globalPinnedRows));
         masterDiv.innerHTML = "";
       }
+    }
+
+    function filterMasterDropdowns() {
+      const filterText = document.getElementById("masterSearch").value.trim().toLowerCase();
+      const masterDiv = document.getElementById("masterSchedule");
+      if (!filterText) {
+        // Show all
+        Array.from(masterDiv.querySelectorAll(".user-section")).forEach(section => {
+          section.style.display = "block";
+        });
+        return;
+      }
+      Array.from(masterDiv.querySelectorAll(".user-section")).forEach(section => {
+        const text = section.textContent.toLowerCase();
+        section.style.display = text.includes(filterText) ? "block" : "none";
+      });
     }
   </script>
 </body>
