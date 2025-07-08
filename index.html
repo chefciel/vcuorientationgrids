@@ -30,7 +30,8 @@
       border-radius: 10px;
       padding: 15px;
       background: #fff;
-      margin-bottom: 10px;
+      flex: 1 1 300px;
+      box-sizing: border-box;
       position: relative;
       transition: background-color 0.3s, box-shadow 0.3s, border-color 0.3s;
     }
@@ -81,45 +82,62 @@
       margin: 0 auto 20px;
       max-width: 150px;
     }
-    .session-group {
-      margin-bottom: 40px;
-    }
-    .session-title {
-      font-size: 1.8em;
-      font-weight: bold;
-      color: #00558C;
-      margin-bottom: 15px;
-      border-bottom: 2px solid #F0B323;
-      padding-bottom: 5px;
-    }
-    .user-section {
-      margin-bottom: 30px;
-    }
-    .user-title {
-      font-weight: bold;
-      font-size: 1.3em;
-      margin-bottom: 10px;
-      color: #231F20;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 3px;
+    .dropdown-label {
       cursor: pointer;
+      font-weight: bold;
+      padding: 10px;
+      background-color: #F0B323;
+      color: #fff;
+      border-radius: 8px;
+      margin: 5px 0;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .arrow {
-      transition: transform 0.2s ease;
-      font-weight: bold;
-    }
     .dropdown-content {
       display: none;
-      padding-top: 10px;
+      padding: 10px;
     }
-    .user-section.expanded .dropdown-content {
-      display: block;
+    .arrow {
+      display: inline-block;
+      transition: transform 0.2s;
     }
-    .user-section.expanded .arrow {
-      transform: rotate(90deg);
+    #masterPasswordContainer, #masterSearchContainer, #exitAdminBtn {
+      display: none;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .user-section, .group-section {
+      margin-bottom: 10px;
+    }
+    .section-header {
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-top: 40px;
+      color: #00558C;
+    }
+    .schedule-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 15px;
+    }
+    .pinned-rows {
+      margin-bottom: 15px;
+    }
+    .global-tag-section {
+      margin-bottom: 30px;
+      border: 2px solid #D72631;
+      border-radius: 10px;
+      padding: 15px;
+      background: #FFF4F5;
+    }
+    .global-tag-title {
+      font-weight: bold;
+      color: #D72631;
+      font-size: 1.3em;
+      margin-bottom: 10px;
+      text-align: center;
     }
   </style>
 </head>
@@ -129,22 +147,93 @@
 
   <div class="input-group">
     <input type="text" id="userId" placeholder="Enter your ID" />
-    <input type="password" id="masterPassword" placeholder="Enter master password (if any)" />
     <button onclick="loadSchedule()">View Schedule</button>
   </div>
 
+  <div class="input-group">
+    <div class="collapsible-label" onclick="togglePassword()">
+      <span id="arrow">▸</span> Show Master Schedule Access
+    </div>
+  </div>
+
+  <div id="masterPasswordContainer">
+    <input type="password" id="masterPassword" placeholder="Enter master password" />
+  </div>
+
+  <div id="masterSearchContainer">
+    <input type="text" id="masterSearch" placeholder="Search by any keyword..." />
+    <button id="masterSearchBtn">Search</button>
+  </div>
+
+  <div id="exitAdminBtn">
+    <button onclick="exitAdminMode()">Exit Admin Mode</button>
+  </div>
+
   <div id="scheduleContainer"></div>
+  <div id="masterSchedule"></div>
 
   <script>
     const SHEET_ID = "1Uafwo7ikADBeXOnof6Fq1LSKXVWfP9kJDMWsg2VirWE";
-
     const allTabs = ["6/23-24", "6/26-27", "6/30", "7/7-8", "7/10-11", "7/14-15", "7/17-18", "7/21-22", "7/24", "8/15", "Transfer Session"];
-
+    const sessionDateMap = {
+      "2025-06-23": "6/23-24", "2025-06-24": "6/23-24",
+      "2025-06-25": "6/26-27", "2025-06-26": "6/26-27", "2025-06-27": "6/26-27",
+      "2025-06-29": "6/30", "2025-06-30": "6/30",
+      "2025-07-03": "7/7-8", "2025-07-04": "7/7-8", "2025-07-05": "7/7-8", "2025-07-06": "7/7-8", "2025-07-07": "7/7-8", "2025-07-08": "7/7-8",
+      "2025-07-10": "7/10-11", "2025-07-11": "7/10-11",
+      "2025-07-14": "7/14-15", "2025-07-15": "7/14-15",
+      "2025-07-17": "7/17-18", "2025-07-18": "7/17-18",
+      "2025-07-21": "7/21-22", "2025-07-22": "7/21-22",
+      "2025-07-24": "7/24", "2025-08-15": "8/15"
+    };
     const MASTER_PASSWORD = "master123";
+    let isAdmin = false;
+    let autoRefreshInterval = null;
 
-    // Parse time strings to Date objects (today + time)
+    document.getElementById("userId").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
+    document.getElementById("masterPassword").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
+    document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
+    document.getElementById("masterSearch").addEventListener("keydown", e => { if (e.key === "Enter") filterMasterDropdowns(); });
+
+    function togglePassword() {
+      const container = document.getElementById("masterPasswordContainer");
+      const arrow = document.getElementById("arrow");
+      const visible = container.style.display === "block";
+      container.style.display = visible ? "none" : "block";
+      arrow.textContent = visible ? "▸" : "▾";
+    }
+
+    function exitAdminMode() {
+      isAdmin = false;
+      clearInterval(autoRefreshInterval);
+      document.getElementById("masterSearchContainer").style.display = "none";
+      document.getElementById("exitAdminBtn").style.display = "none";
+      document.getElementById("masterPassword").value = "";
+      document.getElementById("masterSchedule").innerHTML = "";
+      document.getElementById("scheduleContainer").innerHTML = "";
+      document.getElementById("userId").value = "";
+    }
+
+    function getTodayDateString() {
+      return new Date().toISOString().split("T")[0];
+    }
+
+    function getTodayTabs() {
+      const session = sessionDateMap[getTodayDateString()];
+      return session ? allTabs.filter(tab => tab === session) : [];
+    }
+
+    function extractLink(text) {
+      if (!text) return "";
+      const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
+      const match = text.match(hyperlinkFormulaRegex);
+      if (match) return `<a href="${match[1]}" target="_blank" rel="noopener noreferrer">${match[2]}</a>`;
+      if (/^(https?:\/\/)/i.test(text)) return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      return text;
+    }
+
     function parseTimeString(timeStr) {
-      if (!timeStr) return null;
+      // Convert time string like "9:00 AM" or "12:30 PM" into a Date object today
       const now = new Date();
       const todayStr = now.toDateString();
       try {
@@ -154,10 +243,13 @@
       }
     }
 
-    // Parse event times (start - end) or single time
+    // Parse time or range, return object {start: Date, end: Date|null}
     function parseEventTimes(timeStr) {
       if (!timeStr) return null;
       const parts = timeStr.split("-");
+      const now = new Date();
+      const todayStr = now.toDateString();
+
       if (parts.length === 2) {
         const start = parseTimeString(parts[0]);
         const end = parseTimeString(parts[1]);
@@ -169,42 +261,40 @@
       return null;
     }
 
-    // Highlight logic: yellow 5 min before, red during event (until next event)
+    // Given array of event objects sorted by start time, determine highlight class for one event based on current time and next event
     function getHighlightClass(event, nextEvent) {
       const now = new Date();
       const FIVE_MINUTES = 5 * 60 * 1000;
 
-      if (!event.times) return "";
+      if (!event.times) return ""; // no time info
 
+      // Yellow highlight: from 5 minutes before start until start
       const yellowStart = new Date(event.times.start.getTime() - FIVE_MINUTES);
       const start = event.times.start;
       const end = event.times.end;
 
-      let redEnd = null;
+      // For red highlight end time: 
+      // if end exists, use it
+      // else if nextEvent exists, use nextEvent start
+      // else no end - highlight indefinitely
+      let redHighlightEnd = null;
       if (end) {
-        redEnd = end;
+        redHighlightEnd = end;
       } else if (nextEvent && nextEvent.times) {
-        redEnd = nextEvent.times.start;
+        redHighlightEnd = nextEvent.times.start;
       }
 
       if (now >= yellowStart && now < start) {
         return "yellow-highlight";
       }
+
       if (now >= start) {
-        if (!redEnd || now < redEnd) {
+        if (!redHighlightEnd || now < redHighlightEnd) {
           return "red-highlight";
         }
       }
-      return "";
-    }
 
-    function extractLink(text) {
-      if (!text) return "";
-      const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
-      const match = text.match(hyperlinkFormulaRegex);
-      if (match) return `<a href="${match[1]}" target="_blank" rel="noopener noreferrer">${match[2]}</a>`;
-      if (/^(https?:\/\/)/i.test(text)) return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-      return text;
+      return "";
     }
 
     function createCardHTML(item, highlightClass) {
@@ -221,110 +311,64 @@
         </div>`;
     }
 
-    // Render user schedule fully expanded (no dropdown)
-    function renderUserSchedule(userId, rows) {
+    const renderDropdown = (userId, rows) => {
+      const displayName = userId.replace(/\d$/, '');
       const globalTags = ["TOP", "ANNOUNCEMENT"];
       const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
       const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
 
+      // Sort normalRows by start time for highlight logic
       normalRows.forEach(r => r.times = parseEventTimes(r.time));
-      normalRows.sort((a,b) => {
+      normalRows.sort((a, b) => {
         if (!a.times || !b.times) return 0;
         return a.times.start - b.times.start;
       });
 
-      const pinnedHTML = pinnedRows.map(r => createCardHTML(r, "")).join("");
+      // For each normal event find next event for highlight calculation
       const normalHTML = normalRows.map((r, i) => {
-        const next = normalRows[i+1];
+        const next = normalRows[i + 1];
         const highlightClass = getHighlightClass(r, next);
         return createCardHTML(r, highlightClass);
       }).join("");
 
+      const pinnedHTML = pinnedRows.length ? `
+        <div class="pinned-rows">
+          ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
+        </div>` : "";
+
       return `
         <div class="user-section">
-          <div class="user-title">${userId.toUpperCase()}</div>
-          ${pinnedHTML}
-          ${normalHTML}
-        </div>
-      `;
-    }
-
-    // Render user schedule with dropdown (for admin)
-    function renderUserDropdown(userId, rows) {
-      const globalTags = ["TOP", "ANNOUNCEMENT"];
-      const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
-      const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
-
-      normalRows.forEach(r => r.times = parseEventTimes(r.time));
-      normalRows.sort((a,b) => {
-        if (!a.times || !b.times) return 0;
-        return a.times.start - b.times.start;
-      });
-
-      const pinnedHTML = pinnedRows.map(r => createCardHTML(r, "")).join("");
-      const normalHTML = normalRows.map((r, i) => {
-        const next = normalRows[i+1];
-        const highlightClass = getHighlightClass(r, next);
-        return createCardHTML(r, highlightClass);
-      }).join("");
-
-      // Build dropdown HTML
-      return `
-        <div class="user-section">
-          <div class="user-title" onclick="toggleDropdown(this)">
-            ${userId.toUpperCase()} <span class="arrow">▸</span>
+          <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+            ${displayName} <span class="arrow">▾</span>
           </div>
           <div class="dropdown-content">
             ${pinnedHTML}
-            ${normalHTML}
+            <div class="schedule-grid">
+              ${normalHTML}
+            </div>
           </div>
-        </div>
-      `;
-    }
-
-    function toggleDropdown(element) {
-      const userSection = element.parentElement;
-      userSection.classList.toggle("expanded");
-    }
-
-    // Render master schedule grouped by tabs with user dropdowns
-    function renderMasterSchedule(groupedByUser, allRows) {
-      // Unique tabs sorted
-      const tabsSet = new Set(allRows.map(r => r.tab));
-      const tabs = Array.from(tabsSet).sort();
-
-      let html = "";
-
-      tabs.forEach(tab => {
-        html += `<div class="session-group"><div class="session-title">${tab}</div>`;
-
-        // Users with rows in this tab
-        const usersInTab = Object.keys(groupedByUser).filter(uid =>
-          groupedByUser[uid].some(r => r.tab === tab)
-        ).sort();
-
-        usersInTab.forEach(uid => {
-          const userRowsForTab = groupedByUser[uid].filter(r => r.tab === tab);
-          html += renderUserDropdown(uid, userRowsForTab);
-        });
-
-        html += "</div>";
-      });
-
-      return html;
-    }
+        </div>`;
+    };
 
     async function loadSchedule() {
-      const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
+      const userId = document.getElementById("userId").value.trim().toLowerCase();
       const password = document.getElementById("masterPassword").value.trim();
       const container = document.getElementById("scheduleContainer");
+      const masterDiv = document.getElementById("masterSchedule");
       container.innerHTML = "Loading...";
+      masterDiv.innerHTML = "";
 
-      // Load all tabs (you can adjust to limit tabs)
-      const tabsToLoad = allTabs;
+      const SHEET_TABS = getTodayTabs();
+      if (!SHEET_TABS.length) {
+        container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
+        return;
+      }
+
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = setInterval(() => loadSchedule(), 120000); // Refresh every 2 minutes
 
       let allRows = [];
-      for (const tab of tabsToLoad) {
+      for (const tab of SHEET_TABS) {
         try {
           const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
           const res = await fetch(url);
@@ -343,41 +387,84 @@
         }
       }
 
-      const isAdmin = password === MASTER_PASSWORD;
+      isAdmin = password === MASTER_PASSWORD;
+      document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
+      document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
       const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
       const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.activity.trim().toUpperCase()));
+      const allRowsBySuffix = {};
+      allRows.forEach(row => {
+        if (/^all[1-4]$/.test(row.id)) {
+          if (!allRowsBySuffix[row.id]) allRowsBySuffix[row.id] = [];
+          allRowsBySuffix[row.id].push(row);
+        }
+      });
 
+      // Build user groups
       const groupedByUser = {};
       allRows.forEach(r => {
         if (globalPinnedTags.includes(r.activity.trim().toUpperCase())) return;
+        if (/^all[1-4]$/.test(r.id)) return; // skip allX global
         if (!groupedByUser[r.id]) groupedByUser[r.id] = [];
         groupedByUser[r.id].push(r);
       });
 
-      if (isAdmin) {
-        // Admin mode: show all users grouped by tab, with dropdowns
-        container.innerHTML = renderMasterSchedule(groupedByUser, allRows);
+      // Append global allX rows to matching users
+      for (const userIdKey in groupedByUser) {
+        for (const suffixKey in allRowsBySuffix) {
+          if (userIdKey.endsWith(suffixKey.replace("all", ""))) {
+            groupedByUser[userIdKey] = groupedByUser[userIdKey].concat(allRowsBySuffix[suffixKey]);
+          }
+        }
+      }
 
-        // Add event listeners for dropdown toggles (for keyboard/mouse)
-        document.querySelectorAll(".user-title").forEach(el => {
-          el.onclick = () => toggleDropdown(el);
-        });
+      if (isAdmin) {
+        // Show all users in master dropdowns
+        const usersSorted = Object.keys(groupedByUser).sort();
+        if (usersSorted.length === 0) {
+          masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
+          container.innerHTML = "";
+          return;
+        }
+        masterDiv.innerHTML = usersSorted.map(uid => renderDropdown(uid, groupedByUser[uid])).join("");
+        container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
       } else {
-        // User mode: show only that user's schedule fully expanded, no dropdown
-        if (!userIdInput) {
+        // Normal user view: Show only matching user
+        if (!userId) {
           container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
           return;
         }
-        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userIdInput));
+        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userId));
         if (matchedKeys.length === 0) {
-          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userIdInput}</p>`;
+          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userId}</p>`;
           return;
         }
         const userKey = matchedKeys[0];
-        container.innerHTML = renderUserSchedule(userKey, groupedByUser[userKey]);
+        container.innerHTML = renderDropdown(userKey, groupedByUser[userKey]);
+        masterDiv.innerHTML = "";
       }
     }
+
+    // Filter dropdowns on master search
+    function filterMasterDropdowns() {
+      const filter = document.getElementById("masterSearch").value.toLowerCase();
+      const masterDiv = document.getElementById("masterSchedule");
+      const userSections = masterDiv.querySelectorAll(".user-section");
+      userSections.forEach(section => {
+        const header = section.querySelector(".dropdown-label").textContent.toLowerCase();
+        if (header.includes(filter)) {
+          section.style.display = "block";
+        } else {
+          section.style.display = "none";
+        }
+      });
+    }
+
+    // Initial setup: hide admin controls
+    document.getElementById("masterPasswordContainer").style.display = "none";
+    document.getElementById("masterSearchContainer").style.display = "none";
+    document.getElementById("exitAdminBtn").style.display = "none";
   </script>
 </body>
 </html>
