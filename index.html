@@ -217,7 +217,7 @@ function createCardHTML(item) {
 }
 
 const renderDropdown = (userId, rows) => {
-  const displayName = userId.replace(/\s+(1|2|3|4)$/i, "");
+  const displayName = userId.replace(/\d$/, '');
   return `
     <div class="user-section">
       <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
@@ -315,7 +315,7 @@ async function loadSchedule() {
 
     const uniqueUsers = [...new Set(allRows.map(r => r.id))];
     uniqueUsers.forEach(uid => {
-      const suffix = uid.toLowerCase().split(" ").pop();
+      const suffix = uid.match(/\d$/)?.[0];
       const groupName = suffixMap[suffix];
       if (groupName) {
         const userRows = mergeWithAllRows(allRows.filter(r => r.id === uid));
