@@ -39,6 +39,14 @@
       border-color: #D72631;
       background: #FFE6E8;
     }
+    .card.global-top {
+      border-color: #D72631;
+      background-color: #FFE6E8;
+    }
+    .card.shared-pinned {
+      border-color: #F0B323;
+      background-color: #FFF8E1;
+    }
     .card strong {
       display: block;
       font-size: 1.1em;
@@ -289,10 +297,16 @@
 
     function createCardHTML(item, highlightClass) {
       const globalTags = ["TOP", "ANNOUNCEMENT"];
-      const isPinned = globalTags.includes(item.location.trim().toUpperCase());
+      const locationTag = item.location.trim().toUpperCase();
+let styleClass = "";
+if (globalTags.includes(locationTag)) {
+  styleClass = "global-top";
+} else if (item.id.startsWith("all")) {
+  styleClass = "shared-pinned";
+}
 
       return `
-        <div class="card ${isPinned ? "top-row" : ""} ${highlightClass}">
+        <div class="card ${styleClass} ${highlightClass}">
           ${highlightClass === "red-highlight" ? '<div class="now-badge">Happening now</div>' : ""}
           <strong>${item.time}</strong>
           <div class="activity-text">${extractLink(item.activity)}</div>
