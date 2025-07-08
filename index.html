@@ -33,6 +33,7 @@
       flex: 1 1 300px;
       box-sizing: border-box;
       position: relative;
+      transition: background-color 0.3s, box-shadow 0.3s, border-color 0.3s;
     }
     .card.top-row {
       border-color: #D72631;
@@ -54,21 +55,27 @@
       font-style: italic;
       color: #444;
     }
-    .card.current {
-      border-color: #00558C;
-      background-color: #E3F2FD;
-      box-shadow: 0 0 8px rgba(0, 85, 140, 0.4);
+    .card.yellow-highlight {
+      border-color: #F0B323;
+      background-color: #FFF8E1; /* soft yellow */
+      box-shadow: 0 0 8px rgba(240, 179, 35, 0.5);
     }
-    .card.current .now-badge {
+    .card.red-highlight {
+      border-color: #D72631;
+      background-color: #FFE6E8; /* light red/pink */
+      box-shadow: 0 0 8px rgba(215, 38, 49, 0.6);
+    }
+    .card.red-highlight .now-badge {
       position: absolute;
       top: 10px;
       right: 10px;
-      background-color: #00558C;
+      background-color: #D72631;
       color: #fff;
       font-size: 0.7em;
       padding: 2px 6px;
       border-radius: 5px;
       font-weight: bold;
+      user-select: none;
     }
     #vcu-logo {
       display: block;
@@ -225,37 +232,78 @@
       return text;
     }
 
-    function filterMasterDropdowns() {
-      const term = document.getElementById("masterSearch").value.trim().toLowerCase();
-      document.querySelectorAll(".user-section").forEach(section => {
-        section.style.display = section.innerText.toLowerCase().includes(term) ? "" : "none";
-      });
-      document.querySelectorAll(".group-section").forEach(group => {
-        group.style.display = [...group.querySelectorAll(".user-section")].some(u => u.style.display !== "none") ? "" : "none";
-      });
-      document.querySelectorAll(".session-group").forEach(sess => {
-        sess.style.display = [...sess.querySelectorAll(".group-section")].some(g => g.style.display !== "none") ? "" : "none";
-      });
-    }
-
-    function isEventCurrent(timeStr) {
-      if (!timeStr) return false;
-      const match = timeStr.match(/(\d{1,2}:\d{2}\s?[AP]M)\s*-\s*(\d{1,2}:\d{2}\s?[AP]M)/i);
-      if (!match) return false;
+    function parseTimeString(timeStr) {
+      // Convert time string like "9:00 AM" or "12:30 PM" into a Date object today
       const now = new Date();
-      const today = now.toDateString();
-      const start = new Date(`${today} ${match[1]}`);
-      const end = new Date(`${today} ${match[2]}`);
-      return now >= start && now <= end;
+      const todayStr = now.toDateString();
+      try {
+        return new Date(`${todayStr} ${timeStr.trim()}`);
+      } catch {
+        return null;
+      }
     }
 
-    function createCardHTML(item) {
+    // Parse time or range, return object {start: Date, end: Date|null}
+    function parseEventTimes(timeStr) {
+      if (!timeStr) return null;
+      const parts = timeStr.split("-");
+      const now = new Date();
+      const todayStr = now.toDateString();
+
+      if (parts.length === 2) {
+        const start = parseTimeString(parts[0]);
+        const end = parseTimeString(parts[1]);
+        if (start && end) return { start, end };
+      } else if (parts.length === 1) {
+        const start = parseTimeString(parts[0]);
+        if (start) return { start, end: null };
+      }
+      return null;
+    }
+
+    // Given array of event objects sorted by start time, determine highlight class for one event based on current time and next event
+    function getHighlightClass(event, nextEvent) {
+      const now = new Date();
+      const FIVE_MINUTES = 5 * 60 * 1000;
+
+      if (!event.times) return ""; // no time info
+
+      // Yellow highlight: from 5 minutes before start until start
+      const yellowStart = new Date(event.times.start.getTime() - FIVE_MINUTES);
+      const start = event.times.start;
+      const end = event.times.end;
+
+      // For red highlight end time: 
+      // if end exists, use it
+      // else if nextEvent exists, use nextEvent start
+      // else no end - highlight indefinitely
+      let redHighlightEnd = null;
+      if (end) {
+        redHighlightEnd = end;
+      } else if (nextEvent && nextEvent.times) {
+        redHighlightEnd = nextEvent.times.start;
+      }
+
+      if (now >= yellowStart && now < start) {
+        return "yellow-highlight";
+      }
+
+      if (now >= start) {
+        if (!redHighlightEnd || now < redHighlightEnd) {
+          return "red-highlight";
+        }
+      }
+
+      return "";
+    }
+
+    function createCardHTML(item, highlightClass) {
       const globalTags = ["TOP", "ANNOUNCEMENT"];
       const isPinned = globalTags.includes(item.activity.trim().toUpperCase());
-      const isCurrent = isEventCurrent(item.time);
+
       return `
-        <div class="card ${isPinned ? "top-row" : ""} ${isCurrent ? "current" : ""}">
-          ${isCurrent ? '<div class="now-badge">Happening now</div>' : ""}
+        <div class="card ${isPinned ? "top-row" : ""} ${highlightClass}">
+          ${highlightClass === "red-highlight" ? '<div class="now-badge">Happening now</div>' : ""}
           <strong>${item.time}</strong>
           <div class="activity-text">${extractLink(item.activity)}</div>
           <div class="location-text">${extractLink(item.location)}</div>
@@ -268,10 +316,26 @@
       const globalTags = ["TOP", "ANNOUNCEMENT"];
       const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
       const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
+
+      // Sort normalRows by start time for highlight logic
+      normalRows.forEach(r => r.times = parseEventTimes(r.time));
+      normalRows.sort((a, b) => {
+        if (!a.times || !b.times) return 0;
+        return a.times.start - b.times.start;
+      });
+
+      // For each normal event find next event for highlight calculation
+      const normalHTML = normalRows.map((r, i) => {
+        const next = normalRows[i + 1];
+        const highlightClass = getHighlightClass(r, next);
+        return createCardHTML(r, highlightClass);
+      }).join("");
+
       const pinnedHTML = pinnedRows.length ? `
         <div class="pinned-rows">
-          ${pinnedRows.map(createCardHTML).join('')}
+          ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
         </div>` : "";
+
       return `
         <div class="user-section">
           <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
@@ -280,7 +344,7 @@
           <div class="dropdown-content">
             ${pinnedHTML}
             <div class="schedule-grid">
-              ${normalRows.map(createCardHTML).join("")}
+              ${normalHTML}
             </div>
           </div>
         </div>`;
@@ -336,65 +400,71 @@
           allRowsBySuffix[row.id].push(row);
         }
       });
-      const mergeWithAllRows = rows => {
-        const suffixes = new Set(rows.map(r => r.id.match(/(1|2|3|4)$/i)?.[1]).filter(Boolean));
-        const shared = [...suffixes].flatMap(s => allRowsBySuffix[`all${s}`] || []);
-        return [...shared, ...rows];
-      };
-      const groupByGlobalTags = rows => {
-        const grouped = {};
-        for (const row of rows) {
-          const tag = row.activity.trim().toUpperCase();
-          if (!grouped[tag]) grouped[tag] = [];
-          grouped[tag].push(row);
-        }
-        return grouped;
-      };
 
-      if (!isAdmin) {
-        let userFiltered = allRows.filter(r => r.id === userId);
-        if (!userFiltered.length) {
-          container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
-          return;
-        }
-        const merged = mergeWithAllRows(userFiltered);
-        const sharedGrouped = groupByGlobalTags(merged.filter(r => r.id.startsWith("all") && !globalPinnedTags.includes(r.activity.trim().toUpperCase())));
-        const personal = merged.filter(r => !r.id.startsWith("all"));
+      // Build user groups
+      const groupedByUser = {};
+      allRows.forEach(r => {
+        if (globalPinnedTags.includes(r.activity.trim().toUpperCase())) return;
+        if (/^all[1-4]$/.test(r.id)) return; // skip allX global
+        if (!groupedByUser[r.id]) groupedByUser[r.id] = [];
+        groupedByUser[r.id].push(r);
+      });
 
-        container.innerHTML = "";
-        if (globalPinnedRows.length) {
-          container.innerHTML += `<div class="global-tag-section"><div class="global-tag-title">Important Announcements</div>` +
-            globalPinnedRows.map(createCardHTML).join("") + `</div>`;
-        }
-
-        container.innerHTML += `<div class="schedule-grid">` +
-          Object.values(sharedGrouped).flat().map(createCardHTML).join("") +
-          personal.map(createCardHTML).join("") + `</div>`;
-      } else {
-        container.innerHTML = "<p style='text-align:center;'>Admin Mode: Use search above or explore below.</p>";
-        const groupedUsers = { "Day 1": [], "Day 2": [], "Families Day 1": [], "Families Day 2": [] };
-        const suffixMap = { "1": "Day 1", "2": "Day 2", "3": "Families Day 1", "4": "Families Day 2" };
-        const uniqueUsers = [...new Set(allRows.map(r => r.id))];
-
-        uniqueUsers.forEach(uid => {
-          if (globalPinnedTags.includes(allRows.find(r => r.id === uid)?.activity.trim().toUpperCase())) return;
-          const suffixMatch = uid.match(/(\d)$/);
-          if (!suffixMatch) return;
-          const suffix = suffixMatch[1];
-          const groupName = suffixMap[suffix];
-          if (groupName) {
-            const userRows = mergeWithAllRows(allRows.filter(r => r.id === uid));
-            groupedUsers[groupName].push({ id: uid, rows: userRows });
-          }
-        });
-
-        for (const group of ["Day 1", "Day 2", "Families Day 1", "Families Day 2"]) {
-          if (groupedUsers[group].length) {
-            masterDiv.innerHTML += `<div class="section-header">${group}</div><div class="group-section">${groupedUsers[group].map(u => renderDropdown(u.id, u.rows)).join("")}</div>`;
+      // Append global allX rows to matching users
+      for (const userIdKey in groupedByUser) {
+        for (const suffixKey in allRowsBySuffix) {
+          if (userIdKey.endsWith(suffixKey.replace("all", ""))) {
+            groupedByUser[userIdKey] = groupedByUser[userIdKey].concat(allRowsBySuffix[suffixKey]);
           }
         }
       }
+
+      if (isAdmin) {
+        // Show all users in master dropdowns
+        const usersSorted = Object.keys(groupedByUser).sort();
+        if (usersSorted.length === 0) {
+          masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
+          container.innerHTML = "";
+          return;
+        }
+        masterDiv.innerHTML = usersSorted.map(uid => renderDropdown(uid, groupedByUser[uid])).join("");
+        container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
+      } else {
+        // Normal user view: Show only matching user
+        if (!userId) {
+          container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
+          return;
+        }
+        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userId));
+        if (matchedKeys.length === 0) {
+          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userId}</p>`;
+          return;
+        }
+        const userKey = matchedKeys[0];
+        container.innerHTML = renderDropdown(userKey, groupedByUser[userKey]);
+        masterDiv.innerHTML = "";
+      }
     }
+
+    // Filter dropdowns on master search
+    function filterMasterDropdowns() {
+      const filter = document.getElementById("masterSearch").value.toLowerCase();
+      const masterDiv = document.getElementById("masterSchedule");
+      const userSections = masterDiv.querySelectorAll(".user-section");
+      userSections.forEach(section => {
+        const header = section.querySelector(".dropdown-label").textContent.toLowerCase();
+        if (header.includes(filter)) {
+          section.style.display = "block";
+        } else {
+          section.style.display = "none";
+        }
+      });
+    }
+
+    // Initial setup: hide admin controls
+    document.getElementById("masterPasswordContainer").style.display = "none";
+    document.getElementById("masterSearchContainer").style.display = "none";
+    document.getElementById("exitAdminBtn").style.display = "none";
   </script>
 </body>
 </html>
