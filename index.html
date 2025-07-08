@@ -355,33 +355,6 @@
   }
 };
 
-      const normalHTML = normalRows.map((r, i) => {
-        const next = normalRows[i + 1];
-        const highlightClass = getHighlightClass(r, next);
-        return createCardHTML(r, highlightClass);
-      }).join("");
-
-      const pinnedHTML = pinnedRows.length ? `
-        <div class="pinned-rows">
-          ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
-        </div>` : "";
-
-      const displayName = userId.replace(/\d$/, '');
-
-      return `
-        <div class="user-section">
-          <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
-            ${displayName} <span class="arrow">▾</span>
-          </div>
-          <div class="dropdown-content">
-            ${pinnedHTML}
-            <div class="schedule-grid">
-              ${normalHTML}
-            </div>
-          </div>
-        </div>`;
-    }
-
     // Group labels mapping suffix to group name
     const groupLabels = {
       "1": "Day 1",
