@@ -4,31 +4,127 @@
   <title>VCU Schedule Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* [styles same as yours] */
-    body { font-family: Arial, background-color:#F7F7F7; padding:20px; color:#231F20; }
-    h1 { color:#F0B323; text-align:center; }
-    .input-group { display:flex; gap:10px; margin-bottom:20px; justify-content:center; flex-wrap:wrap; }
-    input,button { padding:10px; font-size:1em; }
-    .card { border:2px solid #F0B323; border-radius:10px; padding:15px; background:#fff; flex:1 1 300px; box-sizing:border-box; }
-    .card strong { font-size:1.1em; margin-bottom:5px; color:#00558C; display:block; }
-    .activity-text { font-size:1em; font-weight:bold; margin-bottom:6px; }
-    .location-text { font-size:0.8em; font-style:italic; color:#444; }
-    #vcu-logo { display:block; margin:0 auto 20px; max-width:150px; }
-    .dropdown-label { cursor:pointer; font-weight:bold; padding:10px; background:#F0B323; color:#fff; border-radius:8px; margin:5px 0; display:flex; justify-content:space-between; align-items:center; }
-    .dropdown-content { display:none; padding:10px; }
-    .arrow { display:inline-block; transition:transform 0.2s; }
-    #masterPasswordContainer,#masterSearchContainer,#exitAdminBtn { display:none; text-align:center; margin-bottom:10px; }
-    .user-section,.group-section { margin-bottom:10px; }
-    .section-header { text-align:center; font-size:1.5em; font-weight:bold; margin-top:40px; color:#00558C; }
-    .schedule-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:15px; }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #F7F7F7;
+      padding: 20px;
+      color: #231F20;
+    }
+    h1 {
+      color: #F0B323;
+      text-align: center;
+    }
+    .input-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 1em;
+    }
+    .card {
+      border: 2px solid #F0B323;
+      border-radius: 10px;
+      padding: 15px;
+      background: #fff;
+      flex: 1 1 300px;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .card.top-row {
+      border-color: #D72631;
+      background: #FFE6E8;
+    }
+    .card strong {
+      display: block;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+      color: #00558C;
+    }
+    .card .activity-text {
+      font-size: 1.0em;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    .card .location-text {
+      font-size: 0.8em;
+      font-style: italic;
+      color: #444;
+    }
+    #vcu-logo {
+      display: block;
+      margin: 0 auto 20px;
+      max-width: 150px;
+    }
+    .dropdown-label {
+      cursor: pointer;
+      font-weight: bold;
+      padding: 10px;
+      background-color: #F0B323;
+      color: #fff;
+      border-radius: 8px;
+      margin: 5px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dropdown-content {
+      display: none;
+      padding: 10px;
+    }
+    .arrow {
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    #masterPasswordContainer, #masterSearchContainer, #exitAdminBtn {
+      display: none;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .user-section, .group-section {
+      margin-bottom: 10px;
+    }
+    .section-header {
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      margin-top: 40px;
+      color: #00558C;
+    }
+    .schedule-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 15px;
+    }
+    /* pinned rows container */
+    .pinned-rows {
+      margin-bottom: 15px;
+    }
+    .global-tag-section {
+      margin-bottom: 30px;
+      border: 2px solid #D72631;
+      border-radius: 10px;
+      padding: 15px;
+      background: #FFF4F5;
+    }
+    .global-tag-title {
+      font-weight: bold;
+      color: #D72631;
+      font-size: 1.3em;
+      margin-bottom: 10px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
-  <img id="vcu-logo" src="https://cumulusassociation.org/wp-content/uploads/2021/10/VCU-Logo-Seal-Virginia-Commonwealth-University1.png" alt="VCU Logo" />
+  <img src="https://cumulusassociation.org/wp-content/uploads/2021/10/VCU-Logo-Seal-Virginia-Commonwealth-University1.png" id="vcu-logo" alt="VCU Logo" />
   <h1>Orientation Grids Viewer</h1>
 
   <div class="input-group">
-    <input id="userId" placeholder="Enter your ID" />
+    <input type="text" id="userId" placeholder="Enter your ID" />
     <button onclick="loadSchedule()">View Schedule</button>
   </div>
 
@@ -39,11 +135,11 @@
   </div>
 
   <div id="masterPasswordContainer">
-    <input id="masterPassword" type="password" placeholder="Enter master password" />
+    <input type="password" id="masterPassword" placeholder="Enter master password" />
   </div>
 
   <div id="masterSearchContainer">
-    <input id="masterSearch" placeholder="Search by any keyword..." />
+    <input type="text" id="masterSearch" placeholder="Search by any keyword..." />
     <button id="masterSearchBtn">Search</button>
   </div>
 
@@ -56,7 +152,7 @@
 
 <script>
 const SHEET_ID = "1Uafwo7ikADBeXOnof6Fq1LSKXVWfP9kJDMWsg2VirWE";
-const allTabs = ["6/23-24","6/26-27","6/30","7/7-8","7/10-11","7/14-15","7/17-18","7/21-22","7/24","8/15","Transfer Session"];
+const allTabs = ["6/23-24", "6/26-27", "6/30", "7/7-8", "7/10-11", "7/14-15", "7/17-18", "7/21-22", "7/24", "8/15", "Transfer Session"];
 const sessionDateMap = {
   "2025-06-23": "6/23-24", "2025-06-24": "6/23-24",
   "2025-06-25": "6/26-27", "2025-06-26": "6/26-27", "2025-06-27": "6/26-27",
@@ -71,137 +167,247 @@ const sessionDateMap = {
 const MASTER_PASSWORD = "master123";
 let isAdmin = false;
 
-document.getElementById("userId").addEventListener("keydown", e=>{ if(e.key==="Enter") loadSchedule(); });
-document.getElementById("masterPassword").addEventListener("keydown", e=>{ if(e.key==="Enter") loadSchedule(); });
+document.getElementById("userId").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
+document.getElementById("masterPassword").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
 document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
-document.getElementById("masterSearch").addEventListener("keydown", e=>{ if(e.key==="Enter") filterMasterDropdowns(); });
+document.getElementById("masterSearch").addEventListener("keydown", e => { if (e.key === "Enter") filterMasterDropdowns(); });
 
-function togglePassword(){
-  const c=document.getElementById("masterPasswordContainer");
-  const a=document.getElementById("arrow");
-  c.style.display = c.style.display==="block"?"none":"block";
-  a.textContent = a.textContent==="▸"?"▾":"▸";
-}
-function exitAdminMode(){
-  isAdmin=false;
-  document.getElementById("masterSearchContainer").style.display="none";
-  document.getElementById("exitAdminBtn").style.display="none";
-  document.getElementById("masterPassword").value="";
-  document.getElementById("masterSchedule").innerHTML="";
+function togglePassword() {
+  const container = document.getElementById("masterPasswordContainer");
+  const arrow = document.getElementById("arrow");
+  const visible = container.style.display === "block";
+  container.style.display = visible ? "none" : "block";
+  arrow.textContent = visible ? "▸" : "▾";
 }
 
-function extractLink(text){
-  if(!text) return "";
-  const h=/^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i.exec(text);
-  if(h) return `<a href="${h[1]}" target="_blank">${h[2]}</a>`;
-  if(/^(https?:\/\/)/i.test(text)) return `<a href="${text}" target="_blank">${text}</a>`;
+function exitAdminMode() {
+  isAdmin = false;
+  document.getElementById("masterSearchContainer").style.display = "none";
+  document.getElementById("exitAdminBtn").style.display = "none";
+  document.getElementById("masterPassword").value = "";
+  document.getElementById("masterSchedule").innerHTML = "";
+  document.getElementById("scheduleContainer").innerHTML = "";
+  document.getElementById("userId").value = "";
+}
+
+function getTodayDateString() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getTodayTabs() {
+  const session = sessionDateMap[getTodayDateString()];
+  return session ? allTabs.filter(tab => tab === session) : [];
+}
+
+function extractLink(text) {
+  if (!text) return "";
+  const hyperlinkFormulaRegex = /^=HYPERLINK\("([^"]+)","([^"]+)"\)$/i;
+  const match = text.match(hyperlinkFormulaRegex);
+  if (match) return `<a href="${match[1]}" target="_blank" rel="noopener noreferrer">${match[2]}</a>`;
+  if (/^(https?:\/\/)/i.test(text)) return `<a href="${text}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   return text;
 }
 
-function createCardHTML(item){
-  return `<div class="card">
-    <strong>${item.time}</strong>
-    <div class="activity-text">${extractLink(item.activity)}</div>
-    <div class="location-text">${extractLink(item.location)}</div>
-    <small style="color:gray;">User ID: ${item.id}</small>
-  </div>`;
+function filterMasterDropdowns() {
+  const term = document.getElementById("masterSearch").value.trim().toLowerCase();
+  document.querySelectorAll(".user-section").forEach(section => {
+    section.style.display = section.innerText.toLowerCase().includes(term) ? "" : "none";
+  });
+  document.querySelectorAll(".group-section").forEach(group => {
+    group.style.display = [...group.querySelectorAll(".user-section")].some(u => u.style.display !== "none") ? "" : "none";
+  });
+  document.querySelectorAll(".session-group").forEach(sess => {
+    sess.style.display = [...sess.querySelectorAll(".group-section")].some(g => g.style.display !== "none") ? "" : "none";
+  });
 }
 
-const renderDropdown=(uid,rows)=>{
-  const displayName = uid.replace(/\d$/,'');
-  return `<div class="user-section">
-    <div class="dropdown-label" onclick="this.nextElementSibling.style.display = (this.nextElementSibling.style.display==='block'?'none':'block');">
-      ${displayName} <span class="arrow">▾</span>
-    </div>
-    <div class="dropdown-content">
-      <div class="schedule-grid">
-        ${rows.map(createCardHTML).join("")}
+function groupByGlobalTags(rows) {
+  const grouped = {};
+  for (const row of rows) {
+    const tag = row.activity.trim().toUpperCase();
+    if (!grouped[tag]) grouped[tag] = [];
+    grouped[tag].push(row);
+  }
+  return grouped;
+}
+
+function createCardHTML(item) {
+  // Add top-row class if activity global tag (like TOP)
+  const globalTags = ["TOP", "ANNOUNCEMENT"];
+  const isPinned = globalTags.includes(item.activity.trim().toUpperCase());
+  return `
+    <div class="card ${isPinned ? "top-row" : ""}">
+      <strong>${item.time}</strong>
+      <div class="activity-text">${extractLink(item.activity)}</div>
+      <div class="location-text">${extractLink(item.location)}</div>
+      <small style="color:gray;">User ID: ${item.id}</small>
+    </div>`;
+}
+
+const renderDropdown = (userId, rows) => {
+  const displayName = userId.replace(/\d$/, '');
+  // Separate pinned (top) rows from regular rows
+  const globalTags = ["TOP", "ANNOUNCEMENT"];
+  const pinnedRows = rows.filter(r => globalTags.includes(r.activity.trim().toUpperCase()));
+  const normalRows = rows.filter(r => !globalTags.includes(r.activity.trim().toUpperCase()));
+
+  const pinnedHTML = pinnedRows.length ? `
+    <div class="pinned-rows">
+      ${pinnedRows.map(createCardHTML).join('')}
+    </div>` : "";
+
+  return `
+    <div class="user-section">
+      <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+        ${displayName} <span class="arrow">▾</span>
       </div>
-    </div>
-  </div>`;
+      <div class="dropdown-content">
+        ${pinnedHTML}
+        <div class="schedule-grid">
+          ${normalRows.map(createCardHTML).join("")}
+        </div>
+      </div>
+    </div>`;
 };
 
-function filterMasterDropdowns(){
-  const term=document.getElementById("masterSearch").value.toLowerCase();
-  document.querySelectorAll(".user-section").forEach(s=>{
-    s.style.display = s.innerText.toLowerCase().includes(term)?"":"none";
-  });
-  document.querySelectorAll(".group-section").forEach(g=>{
-    g.style.display = [...g.querySelectorAll(".user-section")].some(u=>u.style.display==="")?"":"none";
-  });
-  document.querySelectorAll(".session-group").forEach(sg=>{
-    sg.style.display = [...sg.querySelectorAll(".group-section")].some(g=>g.style.display==="")?"":"none";
-  });
-}
+async function loadSchedule() {
+  const userId = document.getElementById("userId").value.trim().toLowerCase();
+  const password = document.getElementById("masterPassword").value.trim();
+  const container = document.getElementById("scheduleContainer");
+  const masterDiv = document.getElementById("masterSchedule");
+  container.innerHTML = "Loading...";
+  masterDiv.innerHTML = "";
 
-async function loadSchedule(){
-  const userId=document.getElementById("userId").value.toLowerCase().trim();
-  const password=document.getElementById("masterPassword").value;
-  const container=document.getElementById("scheduleContainer");
-  const masterDiv=document.getElementById("masterSchedule");
-  container.innerHTML="Loading...";
-  masterDiv.innerHTML="";
-
-  const todayStr=new Date().toISOString().split("T")[0];
-  const tab = sessionDateMap[todayStr];
-  if(!tab){
-    container.innerHTML="<p style='color:red;text-align:center;'>No session data for today.</p>";
+  const SHEET_TABS = getTodayTabs();
+  if (!SHEET_TABS.length) {
+    container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
     return;
   }
 
-  let allRows=[];
-  try{
-    const res = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0,-2));
-    allRows=json.table.rows.map((r,i)=>({
-      id: (r.c[0]?.f||r.c[0]?.v||"").toLowerCase().trim(),
-      time: r.c[1]?.v||"",
-      activity: r.c[2]?.f||r.c[2]?.v||"",
-      location: r.c[3]?.f||r.c[3]?.v||"",
-      row: i+2
-    })).filter(r=>r.id);
-  }catch(err){
-    console.error(err);
+  let allRows = [];
+  for (const tab of SHEET_TABS) {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.substring(47).slice(0, -2));
+      const rows = json.table.rows.map(r => ({
+        id: (r.c[0]?.f || r.c[0]?.v || "").toLowerCase().trim(),
+        time: r.c[1]?.v || "Unknown Time",
+        activity: r.c[2]?.f || r.c[2]?.v || "",
+        location: r.c[3]?.f || r.c[3]?.v || "",
+        tab
+      })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+      allRows = allRows.concat(rows);
+    } catch (err) {
+      console.error(`Error loading sheet "${tab}":`, err);
+    }
   }
 
-  isAdmin = password===MASTER_PASSWORD;
-  document.getElementById("masterSearchContainer").style.display = isAdmin?"block":"none";
-  document.getElementById("exitAdminBtn").style.display = isAdmin?"block":"none";
+  isAdmin = password === MASTER_PASSWORD;
+  document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
+  document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
 
-  if(!isAdmin){
-    const userRows = allRows.filter(r=>r.id===userId);
-    if(!userRows.length){
-      container.innerHTML="<p style='color:red;text-align:center;'>No schedule found for that ID.</p>";
+  // Collect shared rows keyed by all1..all4
+  const allRowsBySuffix = {};
+  allRows.forEach(row => {
+    if (/^all[1-4]$/.test(row.id)) {
+      if (!allRowsBySuffix[row.id]) allRowsBySuffix[row.id] = [];
+      allRowsBySuffix[row.id].push(row);
+    }
+  });
+
+  // Function to merge shared rows with user-specific rows based on suffix digit
+  const mergeWithAllRows = rows => {
+    const suffixes = new Set(rows.map(r => r.id.match(/(1|2|3|4)$/i)?.[1]).filter(Boolean));
+    const shared = [...suffixes].flatMap(s => allRowsBySuffix[`all${s}`] || []);
+    return [...shared, ...rows];
+  };
+
+  // Extract global pinned rows (like TOP, ANNOUNCEMENT) from allRows (those with id starting with "all" but with those tags)
+  const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
+  const globalPinnedRows = allRows.filter(r => {
+    const act = r.activity.trim().toUpperCase();
+    return globalPinnedTags.includes(act);
+  });
+
+  if (!isAdmin) {
+    // Personal view: show pinned rows (TOP etc) on top + merged schedule
+    let userFiltered = allRows.filter(r => r.id === userId);
+    if (!userFiltered.length) {
+      container.innerHTML = "<p style='color:red; text-align:center;'>No schedule found for this ID.</p>";
       return;
     }
-    container.innerHTML = `<div class="schedule-grid">${userRows.map(createCardHTML).join("")}</div>`;
-    return;
-  }
+    const merged = mergeWithAllRows(userFiltered);
+    const sharedGrouped = groupByGlobalTags(merged.filter(r => r.id.startsWith("all") && !globalPinnedTags.includes(r.activity.trim().toUpperCase())));
+    const personal = merged.filter(r => !r.id.startsWith("all"));
 
-  // Admin: group all user rows
-  const groups = {"Day 1":[], "Day 2":[], "Families Day 1":[], "Families Day 2":[]};
-  const suffixMap = {"1":"Day 1","2":"Day 2","3":"Families Day 1","4":"Families Day 2"};
-  const byUser = {};
-  allRows.forEach(r=>{
-    byUser[r.id] = byUser[r.id]||[];
-    byUser[r.id].push(r);
-  });
-  Object.entries(byUser).forEach(([uid,rows])=>{
-    const suffix = uid.match(/\d$/)?.[0];
-    const g = suffixMap[suffix];
-    if(g) groups[g].push({uid,rows});
-  });
+    // Show global pinned rows at top
+    container.innerHTML = "";
+    if(globalPinnedRows.length){
+      container.innerHTML += `<div class="global-tag-section"><div class="global-tag-title">Important Announcements</div>` 
+      + globalPinnedRows.map(createCardHTML).join("")
+      + `</div>`;
+    }
 
-  masterDiv.innerHTML = Object.entries(groups).map(([grp,users])=>`
-    <div class="session-group">
-      <div class="section-header">${grp}</div>
-      <div class="group-section">
-        ${users.map(u=>renderDropdown(u.uid,u.rows)).join("")}
+    container.innerHTML += `<div class="schedule-grid">`
+      + Object.values(sharedGrouped).flat().map(createCardHTML).join("")
+      + personal.map(createCardHTML).join("")
+      + `</div>`;
+  } else {
+    container.innerHTML = "<p style='text-align:center;'>Admin Mode: Use search above or explore below.</p>";
+
+    const groupedUsers = {
+      "Day 1": [],
+      "Day 2": [],
+      "Families Day 1": [],
+      "Families Day 2": []
+    };
+
+    const suffixMap = {
+      "1": "Day 1",
+      "2": "Day 2",
+      "3": "Families Day 1",
+      "4": "Families Day 2"
+    };
+
+    const uniqueUsers = [...new Set(allRows.map(r => r.id))];
+    uniqueUsers.forEach(uid => {
+      // Skip global pinned rows (those with activity tags) to avoid duplicate entries
+      if(globalPinnedTags.some(tag => {
+        const act = allRows.find(r => r.id === uid)?.activity.trim().toUpperCase() || "";
+        return tag === act;
+      })) return;
+
+      // Match suffix at end of userId exactly (like user1, user2, etc.)
+      const suffixMatch = uid.match(/(\d)$/);
+      if (!suffixMatch) return; // skip if no suffix digit
+
+      const suffix = suffixMatch[1];
+      const groupName = suffixMap[suffix];
+      if (groupName) {
+        const userRows = mergeWithAllRows(allRows.filter(r => r.id === uid));
+        groupedUsers[groupName].push({ id: uid, rows: userRows });
+      }
+    });
+
+    // Render global pinned rows at the top of master schedule (admin view)
+    masterDiv.innerHTML = "";
+    if(globalPinnedRows.length){
+      masterDiv.innerHTML += `<div class="global-tag-section"><div class="global-tag-title">Important Announcements</div>` 
+      + globalPinnedRows.map(createCardHTML).join("")
+      + `</div>`;
+    }
+
+    masterDiv.innerHTML += Object.entries(groupedUsers).map(([groupName, users]) => `
+      <div class="session-group">
+        <div class="section-header">${groupName}</div>
+        <div class="group-section">
+          ${users.map(u => renderDropdown(u.id, u.rows)).join("")}
+        </div>
       </div>
-    </div>
-  `).join("");
-  container.innerHTML = "<p style='text-align:center;'>Admin view loaded. Use search above.</p>";
+    `).join("");
+  }
 }
 </script>
 </body>
