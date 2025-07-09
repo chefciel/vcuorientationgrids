@@ -468,15 +468,6 @@ if (globalTags.includes(locationTag)) {
         groupedByUser[r.id].push(r);
       });
 
-      // Attach shared allX rows to matching user IDs by suffix
-      for (const userIdKey in groupedByUser) {
-        for (const suffixKey in allRowsBySuffix) {
-          if (userIdKey.endsWith(suffixKey.replace("all", ""))) {
-            groupedByUser[userIdKey] = groupedByUser[userIdKey].concat(allRowsBySuffix[suffixKey]);
-          }
-        }
-      }
-
       usersRowsMap = groupedByUser; // assign global for renderGroup
 
       if (isAdmin) {
