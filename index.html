@@ -507,7 +507,13 @@ if (globalTags.includes(locationTag)) {
         }
         const userKey = matchedKeys[0];
         // Separate global pinned rows for user view
-        container.innerHTML = renderDropdown(userKey, groupedByUser[userKey].concat(globalPinnedRows));
+       let userRows = groupedByUser[userKey] || [];
+const userSuffix = userKey.slice(-1);
+if (allRowsBySuffix["all" + userSuffix]) {
+  userRows = userRows.concat(allRowsBySuffix["all" + userSuffix]);
+}
+container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
+
         masterDiv.innerHTML = "";
       }
     }
