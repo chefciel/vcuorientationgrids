@@ -383,9 +383,6 @@ if (globalTags.includes(locationTag)) {
       const userSectionsHTML = users.map(uid => {
         // For each user, combine user's rows + shared allX rows for suffix
         let combinedRows = usersRowsMap[uid] || [];
-        if (allRowsBySuffix["all" + groupKey]) {
-          combinedRows = combinedRows.concat(allRowsBySuffix["all" + groupKey]);
-        }
         return renderDropdown(uid, combinedRows);
       }).join("");
 
