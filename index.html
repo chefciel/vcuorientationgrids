@@ -224,13 +224,14 @@
     document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
     document.getElementById("masterSearch").addEventListener("keydown", e => { if (e.key === "Enter") filterMasterDropdowns(); });
 
-    function togglePassword() {
-      const container = document.getElementById("masterPasswordContainer");
-      const arrow = document.getElementById("arrow");
-      const visible = container.style.display === "block";
-      container.style.display = visible ? "none" : "block";
-      arrow.textContent = visible ? "▸" : "▾";
-    }
+function togglePassword() {
+  const container = document.getElementById("masterPasswordContainer");
+  const arrow = document.getElementById("arrow");
+  const currentlyVisible = window.getComputedStyle(container).display !== "none";
+  container.style.display = currentlyVisible ? "none" : "block";
+  arrow.textContent = currentlyVisible ? "▸" : "▾";
+}
+
 
     function exitAdminMode() {
       isAdmin = false;
