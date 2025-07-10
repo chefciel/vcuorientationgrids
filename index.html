@@ -474,12 +474,14 @@ if (globalTags.includes(locationTag)) {
 
       if (isAdmin) {
         // Group user IDs by suffix: 1,2,3,4
-        const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
-        Object.keys(groupedByUser).forEach(uid => {
-          const suffix = uid.slice(-1);
-          if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
-          else groupedBySuffix[suffix] = [uid];
-        });
+       const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
+Object.keys(groupedByUser).forEach(uid => {
+  const match = uid.match(/(\d)$/);
+  if (match && groupedBySuffix[match[1]]) {
+    groupedBySuffix[match[1]].push(uid);
+  }
+});
+
 
         if (Object.keys(groupedByUser).length === 0) {
           masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
