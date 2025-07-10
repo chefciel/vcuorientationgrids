@@ -20,6 +20,8 @@
       flex-wrap: wrap;
       margin-bottom: 20px;
       justify-content: center;
+      flex-direction: column;
+      align-items: center;
     }
     input, button {
       padding: 10px;
@@ -37,21 +39,21 @@
     }
     .card.top-row {
       border-color: #D9A600;
-  background-color: #FFF3B0;
+      background-color: #FFF3B0;
     }
     .card.global-top {
-       border-color: #D9A600;
-  background-color: #FFF3B0;
+      border-color: #D9A600;
+      background-color: #FFF3B0;
     }
     .card.shared-pinned {
-       border-color: #D9A600;
-  background-color: #FFF3B0;
+      border-color: #D9A600;
+      background-color: #FFF3B0;
     }
-/* Announcement box — slightly darker warm yellow */
-.card.global-top.announcement-row {
-  border-color: #D9A600;
-  background-color: #FFF3B0;
-}
+    /* Announcement box — slightly darker warm yellow */
+    .card.global-top.announcement-row {
+      border-color: #D9A600;
+      background-color: #FFF3B0;
+    }
     .card strong {
       display: block;
       font-size: 1.1em;
@@ -107,6 +109,10 @@
       justify-content: space-between;
       align-items: center;
       user-select: none;
+      transition: background-color 0.3s;
+    }
+    .dropdown-label:hover, .group-label:hover {
+      background-color: #e09f1e;
     }
     .dropdown-content, .group-content {
       display: none;
@@ -120,10 +126,21 @@
       display: inline-block;
       transition: transform 0.2s;
     }
-    #masterPasswordContainer, #masterSearchContainer, #exitAdminBtn {
-      display: none;
+    #masterPasswordContainer,
+    #masterSearchContainer,
+    #exitAdminBtn {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: all 0.3s ease;
       text-align: center;
       margin-bottom: 10px;
+    }
+    #masterPasswordContainer.show,
+    #masterSearchContainer.show,
+    #exitAdminBtn.show {
+      max-height: 100px;
+      opacity: 1;
     }
     .user-section, .group-section {
       margin-bottom: 10px;
@@ -149,13 +166,6 @@
       border-radius: 10px;
       padding: 15px;
       background: #FFF4F5;
-    }
-    .global-tag-title {
-      font-weight: bold;
-      color: #D72631;
-      font-size: 1.3em;
-      margin-bottom: 10px;
-      text-align: center;
     }
   </style>
 </head>
@@ -204,40 +214,46 @@
       "2025-07-21": "7/21-22", "2025-07-22": "7/21-22",
       "2025-07-24": "7/24", "2025-08-15": "8/15"
     };
-    const userNameMap = {
-      "thebest1": "nierica", "thebest2": "nierica", "thebest3": "nierica", "thebest4": "nierica",
-      "robinson1": "layla r", "robinson2": "layla r", "robinson3": "layla r", "robinson4": "layla r",
-      "mars1": "marley", "mars2": "marley", "mars3": "marley", "mars4": "marley",
-      "coffey1": "emma c", "coffey2": "emma c", "coffey3": "emma c", "coffey4": "emma c",
-      "goose1": "augusto", "goose2": "augusto", "goose3": "augusto", "goose4": "augusto",
-      "hen1": "henry", "hen2": "henry", "hen3": "henry", "hen4": "henry",
-      "anderson1": "emma a", "anderson2": "emma a", "anderson3": "emma a", "anderson4": "emma a",
-      "layla1": "layla s", "layla2": "layla s", "layla3": "layla s", "layla4": "layla s",
-      "deloatch1": "nevaeh", "deloatch2": "nevaeh", "deloatch3": "nevaeh", "deloatch4": "nevaeh"
-      
     const MASTER_PASSWORD = "master123";
     let isAdmin = false;
     let autoRefreshInterval = null;
+
+    // Custom user display names mapping
+    const userNameMap = {
+      "abc1": "Alex B.",
+      "sara2": "Sara J.",
+      "famx3": "Family - Johnson",
+      "doe4": "Family - Doe"
+      // Add more mappings here
+    };
 
     document.getElementById("userId").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
     document.getElementById("masterPassword").addEventListener("keydown", e => { if (e.key === "Enter") loadSchedule(); });
     document.getElementById("masterSearchBtn").addEventListener("click", filterMasterDropdowns);
     document.getElementById("masterSearch").addEventListener("keydown", e => { if (e.key === "Enter") filterMasterDropdowns(); });
 
-function togglePassword() {
-  const container = document.getElementById("masterPasswordContainer");
-  const arrow = document.getElementById("arrow");
-  const currentlyVisible = window.getComputedStyle(container).display !== "none";
-  container.style.display = currentlyVisible ? "none" : "block";
-  arrow.textContent = currentlyVisible ? "▸" : "▾";
-}
+    function togglePassword() {
+      const container = document.getElementById("masterPasswordContainer");
+      const arrow = document.getElementById("arrow");
+      const passwordInput = document.getElementById("masterPassword");
 
+      const isOpen = container.classList.contains("show");
+
+      if (isOpen) {
+        container.classList.remove("show");
+        arrow.textContent = "▸";
+      } else {
+        container.classList.add("show");
+        arrow.textContent = "▾";
+        setTimeout(() => passwordInput.focus(), 300);
+      }
+    }
 
     function exitAdminMode() {
       isAdmin = false;
       clearInterval(autoRefreshInterval);
-      document.getElementById("masterSearchContainer").style.display = "none";
-      document.getElementById("exitAdminBtn").style.display = "none";
+      document.getElementById("masterSearchContainer").classList.remove("show");
+      document.getElementById("exitAdminBtn").classList.remove("show");
       document.getElementById("masterPassword").value = "";
       document.getElementById("masterSchedule").innerHTML = "";
       document.getElementById("scheduleContainer").innerHTML = "";
@@ -315,12 +331,12 @@ function togglePassword() {
     function createCardHTML(item, highlightClass) {
       const globalTags = ["TOP", "ANNOUNCEMENT"];
       const locationTag = item.location.trim().toUpperCase();
-let styleClass = "";
-if (globalTags.includes(locationTag)) {
-  styleClass = "global-top";
-} else if (item.id.startsWith("all")) {
-  styleClass = "shared-pinned";
-}
+      let styleClass = "";
+      if (globalTags.includes(locationTag)) {
+        styleClass = "global-top";
+      } else if (item.id.startsWith("all")) {
+        styleClass = "shared-pinned";
+      }
 
       return `
         <div class="card ${styleClass} ${highlightClass}">
@@ -332,59 +348,59 @@ if (globalTags.includes(locationTag)) {
         </div>`;
     }
 
-      const renderDropdown = (userId, rows) => {
-  const globalTags = ["TOP", "ANNOUNCEMENT"]; // Add any other pinned tags here
-  const displayName = userNameMap[userId] || userId.replace(/\d$/, '');
+    const renderDropdown = (userId, rows) => {
+      const globalTags = ["TOP", "ANNOUNCEMENT"]; // Add any other pinned tags here
+      const displayName = userNameMap[userId] || userId.replace(/\d$/, '');
 
-  // Separate pinned rows and normal rows
-  const pinnedRows = rows.filter(r => globalTags.includes(r.location.trim().toUpperCase()));
-  const normalRows = rows.filter(r => !globalTags.includes(r.location.trim().toUpperCase()));
+      // Separate pinned rows and normal rows
+      const pinnedRows = rows.filter(r => globalTags.includes(r.location.trim().toUpperCase()));
+      const normalRows = rows.filter(r => !globalTags.includes(r.location.trim().toUpperCase()));
 
-  // Parse times for normal rows for sorting and highlighting
-  normalRows.forEach(r => r.times = parseEventTimes(r.time));
-  normalRows.sort((a, b) => {
-    if (!a.times || !b.times) return 0;
-    return a.times.start - b.times.start;
-  });
+      // Parse times for normal rows for sorting and highlighting
+      normalRows.forEach(r => r.times = parseEventTimes(r.time));
+      normalRows.sort((a, b) => {
+        if (!a.times || !b.times) return 0;
+        return a.times.start - b.times.start;
+      });
 
-  // Create HTML for pinned and normal rows
-  const pinnedHTML = pinnedRows.length ? `
-    <div class="pinned-rows">
-      ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
-    </div>` : "";
+      // Create HTML for pinned and normal rows
+      const pinnedHTML = pinnedRows.length ? `
+        <div class="pinned-rows">
+          ${pinnedRows.map(r => createCardHTML(r, "")).join('')}
+        </div>` : "";
 
-  const normalHTML = normalRows.map((r, i) => {
-    const next = normalRows[i + 1];
-    const highlightClass = getHighlightClass(r, next);
-    return createCardHTML(r, highlightClass);
-  }).join("");
+      const normalHTML = normalRows.map((r, i) => {
+        const next = normalRows[i + 1];
+        const highlightClass = getHighlightClass(r, next);
+        return createCardHTML(r, highlightClass);
+      }).join("");
 
-  if (isAdmin) {
-    // Admin mode: show dropdown toggle as before
-    return `
-      <div class="user-section">
-        <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
-          ${displayName} <span class="arrow">▾</span>
-        </div>
-        <div class="dropdown-content" style="display:none;">
-          ${pinnedHTML}
-          <div class="schedule-grid">
-            ${normalHTML}
-          </div>
-        </div>
-      </div>`;
-  } else {
-    // User mode: show all expanded, no dropdown
-    return `
-      <div class="user-section">
-        <strong>${displayName}</strong>
-        ${pinnedHTML}
-        <div class="schedule-grid">
-          ${normalHTML}
-        </div>
-      </div>`;
-  }
-};
+      if (isAdmin) {
+        // Admin mode: show dropdown toggle as before
+        return `
+          <div class="user-section">
+            <div class="dropdown-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
+              ${displayName} <span class="arrow">▾</span>
+            </div>
+            <div class="dropdown-content" style="display:none;">
+              ${pinnedHTML}
+              <div class="schedule-grid">
+                ${normalHTML}
+              </div>
+            </div>
+          </div>`;
+      } else {
+        // User mode: show all expanded, no dropdown
+        return `
+          <div class="user-section">
+            <strong>${displayName}</strong>
+            ${pinnedHTML}
+            <div class="schedule-grid">
+              ${normalHTML}
+            </div>
+          </div>`;
+      }
+    };
 
     // Group labels mapping suffix to group name
     const groupLabels = {
@@ -408,7 +424,7 @@ if (globalTags.includes(locationTag)) {
           <div class="group-label" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';">
             ${groupLabels[groupKey] || "Group " + groupKey} <span class="arrow">▾</span>
           </div>
-          <div class="group-content">
+          <div class="group-content" style="display:none;">
             <div class="global-tag-section">
               ${globalPinnedRows.map(row => createCardHTML(row, "")).join("")}
             </div>
@@ -421,134 +437,118 @@ if (globalTags.includes(locationTag)) {
     let usersRowsMap = {}; // global to hold groupedByUser for renderGroup
 
     async function loadSchedule() {
-  const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
-  const password = document.getElementById("masterPassword").value.trim();
-  const container = document.getElementById("scheduleContainer");
-  const masterDiv = document.getElementById("masterSchedule");
-  container.innerHTML = "Loading...";
-  masterDiv.innerHTML = "";
-
-  const SHEET_TABS = getTodayTabs();
-  if (!SHEET_TABS.length) {
-    container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
-    return;
-  }
-
-  clearInterval(autoRefreshInterval);
-  autoRefreshInterval = setInterval(() => loadSchedule(), 120000);
-
-  let allRows = [];
-  for (const tab of SHEET_TABS) {
-    try {
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
-      const res = await fetch(url);
-      const text = await res.text();
-      const json = JSON.parse(text.substring(47).slice(0, -2));
-      const rows = json.table.rows.map(r => ({
-        id: (r.c[0]?.f || r.c[0]?.v || "").toLowerCase().trim(),
-        time: r.c[1]?.v || "Unknown Time",
-        activity: r.c[2]?.f || r.c[2]?.v || "",
-        location: r.c[3]?.f || r.c[3]?.v || "",
-        tab
-      })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
-      allRows = allRows.concat(rows);
-    } catch (err) {
-      console.error(`Error loading sheet "${tab}":`, err);
-    }
-  }
-
-  const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
-  const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.location.trim().toUpperCase()));
-
-  // Group shared "all1"–"all4" rows
-  const allRowsBySuffix = {};
-  allRows.forEach(row => {
-    if (/^all[1-4]$/.test(row.id)) {
-      const suffix = row.id.slice(-1);
-      if (!allRowsBySuffix["all" + suffix]) allRowsBySuffix["all" + suffix] = [];
-      allRowsBySuffix["all" + suffix].push(row);
-    }
-  });
-
-  // Group real users (not allX, not global pinned)
-  const groupedByUser = {};
-  allRows.forEach(r => {
-    const id = r.id.toLowerCase().trim();
-    if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
-    if (/^all[1-4]$/.test(id)) return; // skip shared users
-    if (!/^[a-z0-9]+[1-4]$/.test(id)) return; // ensure it's a valid user with a group number
-
-    if (!groupedByUser[id]) groupedByUser[id] = [];
-    groupedByUser[id].push(r);
-  });
-
-  usersRowsMap = groupedByUser;
-
-  isAdmin = password === MASTER_PASSWORD;
-  document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
-  document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
-
-  if (isAdmin) {
-    // Group user IDs by their group number
-    const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
-    Object.keys(groupedByUser).forEach(uid => {
-      const suffix = uid.slice(-1);
-      if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
-    });
-
-    // Sort alphabetically within each group
-    Object.keys(groupedBySuffix).forEach(key => groupedBySuffix[key].sort());
-
-    // Render each group
-    let masterHTML = "";
-    for (const groupKey of ["1", "2", "3", "4"]) {
-      if (groupedBySuffix[groupKey].length > 0) {
-        masterHTML += renderGroup(groupKey, groupedBySuffix[groupKey], allRowsBySuffix, globalPinnedRows);
-      }
-    }
-
-    masterDiv.innerHTML = masterHTML;
-    container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
-  } else {
-    if (!userIdInput) {
-      container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
-      return;
-    }
-
-    const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userIdInput));
-    if (matchedKeys.length === 0) {
-      container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userIdInput}</p>`;
-      return;
-    }
-
-    const userKey = matchedKeys[0];
-    let userRows = [...(groupedByUser[userKey] || [])];
-    const suffixMatch = userKey.match(/(\d)$/);
-    if (suffixMatch) {
-      const suffix = suffixMatch[1];
-      if (allRowsBySuffix["all" + suffix]) {
-        userRows = userRows.concat(allRowsBySuffix["all" + suffix]);
-      }
-    }
-
-    container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
-    masterDiv.innerHTML = "";
-  }
-}
-    
-    function filterMasterDropdowns() {
-      const filterText = document.getElementById("masterSearch").value.trim().toLowerCase();
+      const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
+      const password = document.getElementById("masterPassword").value.trim();
+      const container = document.getElementById("scheduleContainer");
       const masterDiv = document.getElementById("masterSchedule");
-      if (!filterText) {
-        // Show all
-        Array.from(masterDiv.querySelectorAll(".user-section")).forEach(section => {
-          section.style.display = "block";
-        });
+      container.innerHTML = "Loading...";
+      masterDiv.innerHTML = "";
+
+      const SHEET_TABS = getTodayTabs();
+      if (!SHEET_TABS.length) {
+        container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
         return;
       }
-      Array.from(masterDiv.querySelectorAll(".user-section")).forEach(section => {
-        const text = section.textContent.toLowerCase();
-        section.style.display = text.includes(filterText) ? "block" : "none";
+
+      if (password === MASTER_PASSWORD) {
+        isAdmin = true;
+        document.getElementById("masterSearchContainer").classList.add("show");
+        document.getElementById("exitAdminBtn").classList.add("show");
+      } else if (password) {
+        alert("Incorrect master password.");
+        return;
+      } else {
+        isAdmin = false;
+        document.getElementById("masterSearchContainer").classList.remove("show");
+        document.getElementById("exitAdminBtn").classList.remove("show");
+      }
+
+      // Fetch all sheets in parallel and combine rows
+      const fetchPromises = SHEET_TABS.map(tab =>
+        fetch(`https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(tab)}`).then(res => res.json())
+      );
+
+      const sheetsData = await Promise.all(fetchPromises);
+      let combinedRows = [];
+      sheetsData.forEach(sheet => combinedRows.push(...sheet));
+
+      // Clean empty rows (no ID or no activity)
+      combinedRows = combinedRows.filter(r => r.id && r.activity);
+
+      // Build grouped by user ID
+      usersRowsMap = {};
+      combinedRows.forEach(row => {
+        const uid = row.id.trim().toLowerCase();
+        if (!usersRowsMap[uid]) usersRowsMap[uid] = [];
+        usersRowsMap[uid].push(row);
+      });
+
+      if (!isAdmin) {
+        // Normal user view
+        if (!usersRowsMap[userIdInput]) {
+          container.innerHTML = `<p style='text-align:center; color:red;'>User ID not found.</p>`;
+          return;
+        }
+        container.innerHTML = renderDropdown(userIdInput, usersRowsMap[userIdInput]);
+      } else {
+        // Admin mode, show all users grouped by suffix
+
+        // Collect global pinned rows (location = TOP or ANNOUNCEMENT)
+        const globalPinnedRows = combinedRows.filter(r => {
+          const loc = r.location.trim().toUpperCase();
+          return loc === "TOP" || loc === "ANNOUNCEMENT";
+        });
+
+        // Group users by last char suffix
+        let groups = {};
+        Object.keys(usersRowsMap).forEach(uid => {
+          const suffix = uid.slice(-1);
+          if (!groups[suffix]) groups[suffix] = [];
+          groups[suffix].push(uid);
+        });
+
+        // Build HTML with groups collapsible
+        let html = "";
+        Object.entries(groups).forEach(([groupKey, userIds]) => {
+          html += renderGroup(groupKey, userIds, usersRowsMap, globalPinnedRows);
+        });
+
+        masterDiv.innerHTML = html;
+
+        // Show master search container and exit admin button
+        document.getElementById("masterSearchContainer").classList.add("show");
+        document.getElementById("exitAdminBtn").classList.add("show");
+
+        container.innerHTML = "<p style='text-align:center;'>Admin view - all users shown below.</p>";
+      }
+    }
+
+    // Filter master dropdowns by search input (admin only)
+    function filterMasterDropdowns() {
+      const query = document.getElementById("masterSearch").value.trim().toLowerCase();
+      if (!query) {
+        // Show all groups and users
+        const groups = document.querySelectorAll(".group-section");
+        groups.forEach(g => g.style.display = "");
+        const userSections = document.querySelectorAll(".user-section");
+        userSections.forEach(u => u.style.display = "");
+        return;
+      }
+
+      const groups = document.querySelectorAll(".group-section");
+      groups.forEach(group => {
+        let groupMatches = false;
+        const users = group.querySelectorAll(".user-section");
+        users.forEach(userSection => {
+          const text = userSection.textContent.toLowerCase();
+          if (text.includes(query)) {
+            userSection.style.display = "";
+            groupMatches = true;
+          } else {
+            userSection.style.display = "none";
+          }
+        });
+        group.style.display = groupMatches ? "" : "none";
       });
     }
   </script>
