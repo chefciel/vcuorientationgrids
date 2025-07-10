@@ -333,7 +333,7 @@ if (globalTags.includes(locationTag)) {
 
       const renderDropdown = (userId, rows) => {
   const globalTags = ["TOP", "ANNOUNCEMENT"]; // Add any other pinned tags here
-  const displayName = userId.replace(/\d$/, '');
+  const displayName = userNameMap[userId] || userId.replace(/\d$/, '');
 
   // Separate pinned rows and normal rows
   const pinnedRows = rows.filter(r => globalTags.includes(r.location.trim().toUpperCase()));
