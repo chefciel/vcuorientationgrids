@@ -491,10 +491,11 @@ if (globalTags.includes(locationTag)) {
     usersRowsMap = groupedByUser; // 🔥 Moved here before rendering groups
 
     const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
-    Object.keys(groupedByUser).forEach(uid => {
-      const suffix = uid.slice(-1);
-      if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
-    });
+   Object.keys(groupedByUser).forEach(uid => {
+  if (uid.startsWith("all")) return; // 🔥 Skip all1–all4
+  const suffix = uid.slice(-1);
+  if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
+});
 
     Object.keys(groupedBySuffix).forEach(key => groupedBySuffix[key].sort());
 
