@@ -462,13 +462,16 @@ if (globalTags.includes(locationTag)) {
       });
 
       // Group rows by user (excluding global pinned and allX)
-      const groupedByUser = {};
-      allRows.forEach(r => {
-        if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
-        if (/^all[1-4]$/.test(r.id)) return;
-        if (!groupedByUser[r.id]) groupedByUser[r.id] = [];
-        groupedByUser[r.id].push(r);
-      });
+     const groupedByUser = {};
+allRows.forEach(r => {
+  const id = r.id;
+  if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
+  if (!/^\w+\d$/.test(id)) return; // Only allow IDs ending in 1 digit (e.g., abc1)
+  const suffix = id.slice(-1);
+  if (!["1", "2", "3", "4"].includes(suffix)) return;
+  if (!groupedByUser[id]) groupedByUser[id] = [];
+  groupedByUser[id].push(r);
+});
 
       usersRowsMap = groupedByUser; // assign global for renderGroup
 
