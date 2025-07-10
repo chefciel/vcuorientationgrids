@@ -464,14 +464,13 @@ if (globalTags.includes(locationTag)) {
   const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.location.trim().toUpperCase()));
 
   const allRowsBySuffix = {};
-allRows.forEach(row => {
-  if (/^all[2-4]$/.test(row.id)) { 
-    const suffix = row.id.slice(-1);
-    if (!allRowsBySuffix["all" + suffix]) allRowsBySuffix["all" + suffix] = [];
-    allRowsBySuffix["all" + suffix].push(row);
-  }
-});
-
+  allRows.forEach(row => {
+    if (/^all[1-4]$/.test(row.id)) {
+      const suffix = row.id.slice(-1);
+      if (!allRowsBySuffix["all" + suffix]) allRowsBySuffix["all" + suffix] = [];
+      allRowsBySuffix["all" + suffix].push(row);
+    }
+  });
 
   const groupedByUser = {};
   allRows.forEach(r => {
