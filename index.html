@@ -504,11 +504,18 @@ if (globalTags.includes(locationTag)) {
         }
         const userKey = matchedKeys[0];
         // Separate global pinned rows for user view
-       let userRows = groupedByUser[userKey] || [];
-const userSuffix = userKey.slice(-1);
-if (allRowsBySuffix["all" + userSuffix]) {
-  userRows = userRows.concat(allRowsBySuffix["all" + userSuffix]);
+      let userRows = [...(groupedByUser[userKey] || [])];
+
+// Add shared all# rows if matching suffix exists
+const suffixMatch = userKey.match(/(\d)$/);
+if (suffixMatch) {
+  const suffix = suffixMatch[1];
+  if (allRowsBySuffix["all" + suffix]) {
+    userRows = userRows.concat(allRowsBySuffix["all" + suffix]);
+  }
 }
+
+// Now render dropdown including global pinned rows
 container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
 
         masterDiv.innerHTML = "";
