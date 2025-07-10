@@ -530,7 +530,11 @@ if (globalTags.includes(locationTag)) {
       }
     }
 
-    container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
+  // Filter out any "all1" rows from globalPinnedRows to avoid duplicates
+const filteredGlobalPinnedRows = globalPinnedRows.filter(row => !/^all[1-4]$/.test(row.id));
+
+container.innerHTML = renderDropdown(userKey, userRows.concat(filteredGlobalPinnedRows));
+
     masterDiv.innerHTML = "";
   }
 }
