@@ -409,129 +409,121 @@ if (globalTags.includes(locationTag)) {
     let usersRowsMap = {}; // global to hold groupedByUser for renderGroup
 
     async function loadSchedule() {
-      const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
-      const password = document.getElementById("masterPassword").value.trim();
-      const container = document.getElementById("scheduleContainer");
-      const masterDiv = document.getElementById("masterSchedule");
-      container.innerHTML = "Loading...";
-      masterDiv.innerHTML = "";
+  const userIdInput = document.getElementById("userId").value.trim().toLowerCase();
+  const password = document.getElementById("masterPassword").value.trim();
+  const container = document.getElementById("scheduleContainer");
+  const masterDiv = document.getElementById("masterSchedule");
+  container.innerHTML = "Loading...";
+  masterDiv.innerHTML = "";
 
-      const SHEET_TABS = getTodayTabs();
-      if (!SHEET_TABS.length) {
-        container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
-        return;
-      }
-
-      clearInterval(autoRefreshInterval);
-      autoRefreshInterval = setInterval(() => loadSchedule(), 120000);
-
-      let allRows = [];
-      for (const tab of SHEET_TABS) {
-        try {
-          const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
-          const res = await fetch(url);
-          const text = await res.text();
-          const json = JSON.parse(text.substring(47).slice(0, -2));
-          const rows = json.table.rows.map(r => ({
-            id: (r.c[0]?.f || r.c[0]?.v || "").toLowerCase().trim(),
-            time: r.c[1]?.v || "Unknown Time",
-            activity: r.c[2]?.f || r.c[2]?.v || "",
-            location: r.c[3]?.f || r.c[3]?.v || "",
-            tab
-          })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
-          allRows = allRows.concat(rows);
-        } catch (err) {
-          console.error(`Error loading sheet "${tab}":`, err);
-        }
-      }
-
-      isAdmin = password === MASTER_PASSWORD;
-      document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
-      document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
-
-      const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
-      const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.location.trim().toUpperCase()));
-
-      // Group shared allX rows by suffix key
-      const allRowsBySuffix = {};
-      allRows.forEach(row => {
-        if (/^all[1-4]$/.test(row.id)) {
-          if (!allRowsBySuffix[row.id]) allRowsBySuffix[row.id] = [];
-          allRowsBySuffix[row.id].push(row);
-        }
-      });
-
-      // Group rows by user (excluding global pinned and allX)
-     const groupedByUser = {};
-allRows.forEach(r => {
-  const id = r.id;
-  if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
-  if (!/^\w+\d$/.test(id)) return; // Only allow IDs ending in 1 digit (e.g., abc1)
-  const suffix = id.slice(-1);
-  if (!["1", "2", "3", "4"].includes(suffix)) return;
-  if (!groupedByUser[id]) groupedByUser[id] = [];
-  groupedByUser[id].push(r);
-});
-
-      usersRowsMap = groupedByUser; // assign global for renderGroup
-
-      if (isAdmin) {
-        // Group user IDs by suffix: 1,2,3,4
-       const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
-Object.keys(groupedByUser).forEach(uid => {
-  const match = uid.match(/(\d)$/);
-  if (match && groupedBySuffix[match[1]]) {
-    groupedBySuffix[match[1]].push(uid);
+  const SHEET_TABS = getTodayTabs();
+  if (!SHEET_TABS.length) {
+    container.innerHTML = "<p style='text-align:center; color:red;'>No session data available for today.</p>";
+    return;
   }
-});
 
+  clearInterval(autoRefreshInterval);
+  autoRefreshInterval = setInterval(() => loadSchedule(), 120000);
 
-        if (Object.keys(groupedByUser).length === 0) {
-          masterDiv.innerHTML = "<p style='text-align:center;'>No schedule data available.</p>";
-          container.innerHTML = "";
-          return;
-        }
-
-        // Render each group section
-        let masterHTML = "";
-        for (const groupKey of ["1", "2", "3", "4"]) {
-          if (groupedBySuffix[groupKey] && groupedBySuffix[groupKey].length > 0) {
-            masterHTML += renderGroup(groupKey, groupedBySuffix[groupKey], allRowsBySuffix, globalPinnedRows);
-          }
-        }
-        masterDiv.innerHTML = masterHTML;
-        container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
-      } else {
-        if (!userIdInput) {
-          container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
-          return;
-        }
-        // Find user IDs that include input
-        const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userIdInput));
-        if (matchedKeys.length === 0) {
-          container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userIdInput}</p>`;
-          return;
-        }
-        const userKey = matchedKeys[0];
-        // Separate global pinned rows for user view
-      let userRows = [...(groupedByUser[userKey] || [])];
-
-// Add shared all# rows if matching suffix exists
-const suffixMatch = userKey.match(/(\d)$/);
-if (suffixMatch) {
-  const suffix = suffixMatch[1];
-  if (allRowsBySuffix["all" + suffix]) {
-    userRows = userRows.concat(allRowsBySuffix["all" + suffix]);
+  let allRows = [];
+  for (const tab of SHEET_TABS) {
+    try {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const json = JSON.parse(text.substring(47).slice(0, -2));
+      const rows = json.table.rows.map(r => ({
+        id: (r.c[0]?.f || r.c[0]?.v || "").toLowerCase().trim(),
+        time: r.c[1]?.v || "Unknown Time",
+        activity: r.c[2]?.f || r.c[2]?.v || "",
+        location: r.c[3]?.f || r.c[3]?.v || "",
+        tab
+      })).filter(r => r.id && r.id !== "hidden" && r.id !== "_blank_");
+      allRows = allRows.concat(rows);
+    } catch (err) {
+      console.error(`Error loading sheet "${tab}":`, err);
+    }
   }
-}
 
-// Now render dropdown including global pinned rows
-container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
+  const globalPinnedTags = ["TOP", "ANNOUNCEMENT"];
+  const globalPinnedRows = allRows.filter(r => globalPinnedTags.includes(r.location.trim().toUpperCase()));
 
-        masterDiv.innerHTML = "";
+  // Group shared "all1"–"all4" rows
+  const allRowsBySuffix = {};
+  allRows.forEach(row => {
+    if (/^all[1-4]$/.test(row.id)) {
+      const suffix = row.id.slice(-1);
+      if (!allRowsBySuffix["all" + suffix]) allRowsBySuffix["all" + suffix] = [];
+      allRowsBySuffix["all" + suffix].push(row);
+    }
+  });
+
+  // Group real users (not allX, not global pinned)
+  const groupedByUser = {};
+  allRows.forEach(r => {
+    const id = r.id.toLowerCase().trim();
+    if (globalPinnedTags.includes(r.location.trim().toUpperCase())) return;
+    if (/^all[1-4]$/.test(id)) return; // skip shared users
+    if (!/^[a-z0-9]+[1-4]$/.test(id)) return; // ensure it's a valid user with a group number
+
+    if (!groupedByUser[id]) groupedByUser[id] = [];
+    groupedByUser[id].push(r);
+  });
+
+  usersRowsMap = groupedByUser;
+
+  isAdmin = password === MASTER_PASSWORD;
+  document.getElementById("masterSearchContainer").style.display = isAdmin ? "block" : "none";
+  document.getElementById("exitAdminBtn").style.display = isAdmin ? "block" : "none";
+
+  if (isAdmin) {
+    // Group user IDs by their group number
+    const groupedBySuffix = { "1": [], "2": [], "3": [], "4": [] };
+    Object.keys(groupedByUser).forEach(uid => {
+      const suffix = uid.slice(-1);
+      if (groupedBySuffix[suffix]) groupedBySuffix[suffix].push(uid);
+    });
+
+    // Sort alphabetically within each group
+    Object.keys(groupedBySuffix).forEach(key => groupedBySuffix[key].sort());
+
+    // Render each group
+    let masterHTML = "";
+    for (const groupKey of ["1", "2", "3", "4"]) {
+      if (groupedBySuffix[groupKey].length > 0) {
+        masterHTML += renderGroup(groupKey, groupedBySuffix[groupKey], allRowsBySuffix, globalPinnedRows);
       }
     }
 
+    masterDiv.innerHTML = masterHTML;
+    container.innerHTML = "<p style='text-align:center;'>Admin Mode: Viewing all users</p>";
+  } else {
+    if (!userIdInput) {
+      container.innerHTML = "<p style='text-align:center; color:red;'>Please enter your User ID.</p>";
+      return;
+    }
+
+    const matchedKeys = Object.keys(groupedByUser).filter(k => k.includes(userIdInput));
+    if (matchedKeys.length === 0) {
+      container.innerHTML = `<p style='text-align:center; color:red;'>No schedule found for user ID: ${userIdInput}</p>`;
+      return;
+    }
+
+    const userKey = matchedKeys[0];
+    let userRows = [...(groupedByUser[userKey] || [])];
+    const suffixMatch = userKey.match(/(\d)$/);
+    if (suffixMatch) {
+      const suffix = suffixMatch[1];
+      if (allRowsBySuffix["all" + suffix]) {
+        userRows = userRows.concat(allRowsBySuffix["all" + suffix]);
+      }
+    }
+
+    container.innerHTML = renderDropdown(userKey, userRows.concat(globalPinnedRows));
+    masterDiv.innerHTML = "";
+  }
+}
+    
     function filterMasterDropdowns() {
       const filterText = document.getElementById("masterSearch").value.trim().toLowerCase();
       const masterDiv = document.getElementById("masterSchedule");
