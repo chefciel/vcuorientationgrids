@@ -191,6 +191,23 @@
   <div id="masterSchedule"></div>
 
   <script>
+    // LIVE GOOGLE SHEET 2026 DATA
+const dataUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQK62YJBQYrSPrzcAPnA8iUca1VR1Jyz7tJzFZ7LTEy2VDv52-EyKuYEzlaTa5G0ebubNtcr5rIeqaO/pub?output=csv";
+
+async function loadLiveData() {
+    const response = await fetch(dataUrl);
+    const csvText = await response.text();
+    const rows = csvText.split('\n').filter(row => row.trim())
+                       .map(row => row.split(',').map(cell => cell.trim()));
+    
+    // REPLACE your old data loading with this:
+    window.scheduleData = rows.slice(1); // Your existing code uses this
+    if (typeof yourDisplayFunction === 'function') yourDisplayFunction(); // Triggers your features
+}
+
+// Auto-load + call your existing display
+window.onload = loadLiveData;
+
     const SHEET_ID = "1Uafwo7ikADBeXOnof6Fq1LSKXVWfP9kJDMWsg2VirWE";
     const allTabs = ["6/23-24", "6/26-27", "6/30", "7/7-8", "7/10-11", "7/14-15", "7/17-18", "7/21-22", "7/24", "8/15", "Transfer Session"];
     const sessionDateMap = {
@@ -557,4 +574,5 @@ container.innerHTML = renderDropdown(userKey, userRows.concat(filteredGlobalPinn
   </script>
 </body>
 </html>
+
 
